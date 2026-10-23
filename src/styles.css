@@ -118,6 +118,11 @@
     scrollbar-width: thin;
     scrollbar-color: rgb(var(--line-strong)) transparent;
   }
+  /* Our search fields draw their own clear button. */
+  input[type='search']::-webkit-search-cancel-button {
+    -webkit-appearance: none;
+    display: none;
+  }
   .no-scrollbar {
     scrollbar-width: none;
   }

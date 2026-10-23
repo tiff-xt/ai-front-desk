@@ -3,7 +3,7 @@ import { ArrowUp, Mic } from 'lucide-react'
 import { cx } from '@/lib/cx'
 import { StaffAvatar } from '@/components/ui'
 import { STARTER_ENGLISH, useT } from '@/lib/i18n'
-import { ask, leaveThread, useStore } from '@/store/store'
+import { activeThread, ask, leaveThread, useStore } from '@/store/store'
 
 export type SpeechCtor = new () => {
   lang: string
@@ -20,7 +20,7 @@ export function Composer({ suggestions }: { suggestions?: string[] }) {
   const [listening, setListening] = useState(false)
   const thinking = useStore((s) => s.thinking)
   // While a person has the conversation, say so right where the parent types.
-  const inThread = useStore((s) => s.inbox.some((i) => i.id === s.activeThreadId && i.status !== 'done'))
+  const inThread = useStore((s) => !!activeThread(s))
   const { t, locale } = useT()
   const w = window as unknown as { SpeechRecognition?: SpeechCtor; webkitSpeechRecognition?: SpeechCtor }
   const Speech = w.SpeechRecognition ?? w.webkitSpeechRecognition

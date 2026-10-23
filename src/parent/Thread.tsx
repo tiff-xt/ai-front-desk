@@ -1,15 +1,15 @@
 import { useState } from 'react'
-import { BookOpen, ChevronDown, Sparkles, ThumbsDown, ThumbsUp } from 'lucide-react'
+import { Bookmark, BookOpen, ChevronDown, Sparkles, ThumbsDown, ThumbsUp } from 'lucide-react'
 import { Mark } from '@/components/Mark'
 import { cx } from '@/lib/cx'
 import { StatusPill, StaffAvatar } from '@/components/ui'
 import type { Answer, Citation } from '@/engine/types'
 import { fmt, useT } from '@/lib/i18n'
-import { giveFeedback, useStore, type LogEntry, type Message } from '@/store/store'
+import { giveFeedback, useStore, type LogEntry, type Message, toggleSaved } from '@/store/store'
 import { AnswerCard } from './cards'
 
 /** Conversation rendering. A desk answer = status + text + interactive card + sources + "why this answer" trace. */
-export function Bubble({ m, entry }: { m: Message; entry?: LogEntry }) {
+export function Bubble({ m, entry, conversationId }: { m: Message; entry?: LogEntry; conversationId?: string }) {
   const { t } = useT()
   const [orig, setOrig] = useState(false)
   if (m.role === 'parent')
@@ -62,10 +62,10 @@ export function Bubble({ m, entry }: { m: Message; entry?: LogEntry }) {
       </div>
     )
   if (!entry) return null
-  return <DeskAnswer entry={entry} />
+  return <DeskAnswer entry={entry} m={m} conversationId={conversationId} />
 }
 
-export function DeskAnswer({ entry }: { entry: LogEntry }) {
+export function DeskAnswer({ entry, m, conversationId }: { entry: LogEntry; m: Message; conversationId?: string }) {
   const k = useStore((s) => s.knowledge)
   const now = useStore((s) => s.now)
   const a = entry.answer
@@ -101,6 +101,17 @@ export function DeskAnswer({ entry }: { entry: LogEntry }) {
             <ChevronDown size={13} className={cx('transition', why && 'rotate-180')} />
           </button>
           <span className="flex-1" />
+          {conversationId && (
+            <button
+              aria-label={m.saved ? t.unsave : t.save}
+              title={m.saved ? t.unsave : t.save}
+              aria-pressed={!!m.saved}
+              onClick={() => toggleSaved(conversationId, m.id)}
+              className={cx('btn-ghost !p-1.5', m.saved && '!text-wren')}
+            >
+              <Bookmark size={14} fill={m.saved ? 'currentColor' : 'none'} />
+            </button>
+          )}
           {entry.feedback ? (
             <span className="px-2 text-xs text-ink-subtle">{entry.feedback === 'up' ? t.thanks : t.thanksDown}</span>
           ) : (

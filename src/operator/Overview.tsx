@@ -3,7 +3,7 @@ import { ArrowRight, ThumbsDown } from 'lucide-react'
 import { cx } from '@/lib/cx'
 import { LangBadge, StatusPill } from '@/components/ui'
 import { TOPIC_LABELS } from '@/engine/defaults'
-import { formatDay, formatTime } from '@/lib/time'
+import { daysBetween, formatDay, formatTime } from '@/lib/time'
 import { gapItems, resolvedByDesk } from '@/store/selectors'
 import { useStore } from '@/store/store'
 import type { Tab } from './Operator'
@@ -12,7 +12,17 @@ import type { Tab } from './Operator'
 const MIN_PER_ANSWER = 4
 
 export function Overview({ go }: { go: (t: Tab) => void }) {
-  const log = useStore((s) => s.log)
+  const allLog = useStore((s) => s.log)
+  const now = useStore((s) => s.now)
+  // "This week" means the seven days up to the demo clock.
+  const log = useMemo(
+    () =>
+      allLog.filter((l) => {
+        const d = daysBetween(l.at.date, now.date)
+        return d >= 0 && d < 7
+      }),
+    [allLog, now.date],
+  )
   const inbox = useStore((s) => s.inbox)
   const stats = useMemo(() => {
     const resolved = log.filter(resolvedByDesk).length

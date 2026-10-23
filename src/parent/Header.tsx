@@ -1,4 +1,4 @@
-import { ChevronDown, Globe } from 'lucide-react'
+import { ChevronDown, Globe, History, SquarePen } from 'lucide-react'
 import { Mark } from '@/components/Mark'
 import { cx } from '@/lib/cx'
 import { demoFamily, roomNames } from '@/data/seed'
@@ -6,16 +6,21 @@ import { dayStatus, isOfficeOpen } from '@/engine/policy'
 import { LOCALES, UI_LANGS, useT } from '@/lib/i18n'
 import type { UiLang } from '@/lib/lang'
 import { formatTime } from '@/lib/time'
-import { setChild, setLang, useStore } from '@/store/store'
+import { currentMessages, setChild, setLang, useStore } from '@/store/store'
 
 /** Center name, office status, language switch and the child selector. Answers are personal to the selected child. */
-export function Header() {
+export function Header({ onHistory, onNew }: { onHistory: () => void; onNew: () => void }) {
   const k = useStore((s) => s.knowledge)
   const now = useStore((s) => s.now)
   const childId = useStore((s) => s.childId)
   const open = isOfficeOpen(k, now)
   const today = dayStatus(k, now.date)
   const { t, lang } = useT()
+  const hasMessages = useStore((s) => currentMessages(s).length > 0)
+  // A dot on History when a conversation with staff is still going on elsewhere.
+  const waiting = useStore(
+    (s) => s.inbox.filter((i) => i.live && i.kind === 'handoff' && i.status !== 'done' && i.conversationId !== s.currentId).length,
+  )
   return (
     <header className="border-b border-line bg-surface/80 px-3 pb-2.5 pt-3 backdrop-blur">
       <div className="flex items-center gap-2.5">
@@ -25,10 +30,22 @@ export function Header() {
             Willow <em className="font-normal text-wren">&amp;</em> Wren
           </div>
           <div className="flex items-center gap-1.5 text-xs text-ink-muted">
-            <span className={cx('h-1.5 w-1.5 rounded-full', open ? 'bg-willow' : 'bg-ink-subtle')} />
-            {open ? t.officeOpen(formatTime('close' in today ? today.close : k.center.close)) : t.officeClosed}
+            <span className={cx('h-1.5 w-1.5 shrink-0 rounded-full', open ? 'bg-willow' : 'bg-ink-subtle')} />
+            <span className="truncate">
+              {open ? t.officeOpen(formatTime('close' in today ? today.close : k.center.close)) : t.officeClosed}
+            </span>
           </div>
         </div>
+        <button onClick={onHistory} className="btn-ghost relative shrink-0 !p-1.5" aria-label={t.historyOpen} title={t.historyOpen}>
+          <History size={18} />
+          {waiting > 0 && <span className="absolute right-0.5 top-0.5 h-2 w-2 rounded-full border-2 border-surface bg-dusk" aria-hidden />}
+        </button>
+        {/* Only useful once there's a conversation to leave; History has its own "new" button. */}
+        {hasMessages && (
+          <button onClick={onNew} className="btn-ghost shrink-0 !p-1.5" aria-label={t.newConversation} title={t.newConversation}>
+            <SquarePen size={17} />
+          </button>
+        )}
         {/* A native select: on a phone it opens the system picker, which parents already know how to use. */}
         <label className="relative flex shrink-0 items-center rounded-full border border-line py-1 pl-2 pr-6 text-xs font-medium text-ink-muted transition focus-within:border-willow hover:text-ink">
           <Globe size={13} className="mr-1" aria-hidden />

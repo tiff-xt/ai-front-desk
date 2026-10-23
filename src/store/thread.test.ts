@@ -1,5 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest'
-import { ask, getState, leaveThread, replyToParent, resetDemo, resolveItem } from './store'
+import { activeThread, ask, getState, leaveThread, replyToParent, resetDemo, resolveItem } from './store'
+
+const activeId = () => activeThread(getState())?.id ?? null
 
 /** The exact sequence from user testing: a billing handoff, a staff reply, then a follow-up that mentions lunch. */
 describe('conversations with staff', () => {
@@ -9,7 +11,7 @@ describe('conversations with staff', () => {
 
   it('keeps the conversation with the person instead of letting the AI answer follow-ups', async () => {
     await ask('I have a billing issue')
-    const id = getState().activeThreadId
+    const id = activeId()
     expect(itemFor(id).kind).toBe('handoff')
 
     await replyToParent(id!, 'Happy to help. What happened?')
@@ -24,7 +26,7 @@ describe('conversations with staff', () => {
 
   it('still answers tapped suggestions and emergencies instantly', async () => {
     await ask('I have a billing issue')
-    const id = getState().activeThreadId
+    const id = activeId()
 
     await ask('What is the tuition for infants?', 'What is the tuition for infants?')
     expect(getState().log.at(-1)!.answer.topic).toBe('tuition')
@@ -32,20 +34,20 @@ describe('conversations with staff', () => {
     await ask('Maya is not breathing')
     expect(getState().log.at(-1)!.answer.status).toBe('urgent')
     // The emergency becomes its own staff conversation and takes priority over billing.
-    const urgent = itemFor(getState().activeThreadId)
+    const urgent = itemFor(activeId())
     expect(urgent.thread[0].text).toBe('Maya is not breathing')
     expect(itemFor(id).status).toBe('open') // the billing conversation is still in the inbox
   }, 10_000)
 
   it('returns to the front desk when staff resolve it or the parent leaves', async () => {
     await ask('I have a billing issue')
-    resolveItem(getState().activeThreadId!)
-    expect(getState().activeThreadId).toBeNull()
+    resolveItem(activeId()!)
+    expect(activeId()).toBeNull()
     await ask('Are you open Friday?')
     expect(getState().log.at(-1)!.answer.topic).toBe('hours')
 
     await ask('I was charged twice')
-    expect(getState().activeThreadId).not.toBeNull()
+    expect(activeId()).not.toBeNull()
     leaveThread()
     await ask('How much is toddler tuition?')
     expect(getState().log.at(-1)!.answer.topic).toBe('tuition')
