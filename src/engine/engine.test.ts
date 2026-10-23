@@ -128,3 +128,12 @@ describe('staff-typed text is safe', () => {
     expect(ask('Do you have (after care) on Thursdays?').sources[0]?.id).toBe('faq.x')
   })
 })
+
+describe('LLM topic routing', () => {
+  it('lets a guess reach a person or an overview, never a dated or child-specific answer', async () => {
+    const { acceptsLlmTopic } = await import('./respond')
+    expect(['tuition', 'tours', 'custody', 'incidents', 'billing', 'medical'].every((t) => acceptsLlmTopic(t as never))).toBe(true)
+    // "Do kids need anything for the Thanksgiving feast?" was classified as lunch and got today's menu.
+    expect(['lunch', 'hours', 'illness', 'unknown'].some((t) => acceptsLlmTopic(t as never))).toBe(false)
+  })
+})

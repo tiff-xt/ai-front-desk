@@ -1,7 +1,7 @@
 import { detectLang, UNVERIFIED_NOTE, URGENT, type UiLang } from '@/lib/lang'
 import { answerQuestion, type EngineInput } from './answer'
 import { classify, llmEnabled, phrase, translateFor, understandLanguage } from './llm'
-import type { Answer } from './types'
+import type { Answer, AnyTopic } from './types'
 import { understand } from './understand'
 
 /**
@@ -37,6 +37,15 @@ export interface Response {
   unverified: boolean
 }
 
+/**
+ * Topics an LLM guess may route to: a person (sensitive topics hand off), or a
+ * general overview that's right whatever the exact question. Never to a dated or
+ * child-specific answer: a guessed "lunch" for "anything for the Thanksgiving
+ * feast?" would serve today's menu with full confidence.
+ */
+const LLM_ROUTABLE: AnyTopic[] = ['tuition', 'tours', 'billing', 'incidents', 'custody', 'medical']
+export const acceptsLlmTopic = (topic: AnyTopic) => LLM_ROUTABLE.includes(topic)
+
 export async function respond({ question, englishHint, uiLang, engine }: RespondInput): Promise<Response> {
   const steps: string[] = []
 
@@ -68,7 +77,7 @@ export async function respond({ question, englishHint, uiLang, engine }: Respond
   // 3. Classify (only when the rules found nothing)
   if (llmEnabled() && answer.topic === 'unknown') {
     const topic = await classify(english)
-    if (topic && topic !== 'unknown') {
+    if (topic && acceptsLlmTopic(topic)) {
       const retry = answerQuestion(input, {
         ...understand(english, engine.knowledge, engine.now.date),
         topic,
