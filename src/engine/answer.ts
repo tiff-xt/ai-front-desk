@@ -15,7 +15,7 @@ import {
 } from './policy'
 import { searchHandbook } from './retrieve'
 import type { Answer, AnyTopic, Autonomy, Card, Citation, Status, Topic } from './types'
-import { normalize } from '@/lib/text'
+import { escapeRegExp, normalize } from '@/lib/text'
 import { understand, type Understanding } from './understand'
 
 export interface EngineInput {
@@ -357,7 +357,7 @@ const LOCKED: AnyTopic[] = ['emergency', 'privacy', 'unknown']
 export function pickChild(question: string, family: Family, fallback: string) {
   const q = normalize(question)
   return (
-    family.children.find((c) => new RegExp(`\\b${c.name.toLowerCase()}\\b`).test(q)) ??
+    family.children.find((c) => new RegExp(`\\b${escapeRegExp(c.name.toLowerCase())}\\b`).test(q)) ??
     family.children.find((c) => c.id === fallback) ??
     family.children[0]
   )

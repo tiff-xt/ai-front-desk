@@ -1,5 +1,5 @@
 import type { HandbookSection, Knowledge } from '@/data/types'
-import { normalize } from '@/lib/text'
+import { escapeRegExp, normalize } from '@/lib/text'
 
 const STOP = new Set(
   'a an the is are am be to of for in on at by with my our your you we i it can could would should do does did what when where how why who which there this that these those and or if me us they them will just about any have has get got need want please hi hello thanks thank'.split(
@@ -30,7 +30,7 @@ export function searchHandbook(k: Knowledge, question: string): Hit[] {
   return k.handbook
     .map((section) => {
       let score = 0
-      for (const kw of section.keywords) if (new RegExp(`\\b${kw.toLowerCase()}`).test(q)) score += kw.includes(' ') ? 3 : 2
+      for (const kw of section.keywords) if (new RegExp(`\\b${escapeRegExp(kw.toLowerCase())}`).test(q)) score += kw.includes(' ') ? 3 : 2
       for (const w of tokens(section.title)) if (qt.has(w)) score += 1
       return { section, score }
     })

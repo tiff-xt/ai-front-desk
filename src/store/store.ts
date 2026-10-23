@@ -153,13 +153,33 @@ function toInbox(l: LogEntry): InboxItem {
   }
 }
 
+const INBOX_KINDS: InboxKind[] = ['handoff', 'review', 'flag', 'lunch', 'tour', 'absence']
+const OP_TABS: OpTab[] = ['overview', 'inbox', 'gaps', 'knowledge', 'autonomy', 'tests']
+
+/** A cheap structural check on saved data: enough to guarantee every view can render it. */
+function isSane(s: State) {
+  return (
+    Array.isArray(s.log) &&
+    s.log.every((l) => l?.answer?.status && l.at?.date && typeof l.question === 'string') &&
+    Array.isArray(s.inbox) &&
+    s.inbox.every((i) => INBOX_KINDS.includes(i?.kind)) &&
+    Array.isArray(s.messages) &&
+    OP_TABS.includes(s.opTab) &&
+    typeof s.now?.date === 'string' &&
+    !!s.knowledge?.center &&
+    Array.isArray(s.knowledge.handbook)
+  )
+}
+
 function load(): State {
   const fresh = initial()
   const raw = storage.get(KEY)
   if (!raw) return fresh
   try {
-    // Merge over defaults so a save from an older version can't leave a field undefined.
-    return { ...fresh, ...(JSON.parse(raw) as Partial<State>), thinking: false }
+    // Merge over defaults so a save from an older version can't leave a field undefined,
+    // and discard anything malformed rather than render it.
+    const saved = { ...fresh, ...(JSON.parse(raw) as Partial<State>), thinking: false }
+    return isSane(saved) ? saved : fresh
   } catch {
     return fresh // corrupted: start fresh
   }

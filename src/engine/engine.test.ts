@@ -102,3 +102,14 @@ describe('guard catches omissions', () => {
     expect(guard('Cerramos el vie., 11 de nov. Reabrimos el jueves 12 de nov a las 7:00 am.', [d], d).unsupported).toContain('friday')
   })
 })
+
+describe('staff-typed text is safe', () => {
+  it('a keyword with regex characters cannot crash answering', () => {
+    const k = structuredClone(seedKnowledge)
+    k.handbook.push({ id: 'faq.x', title: 'C++ club (after care)', body: 'Coding club runs Thursdays.', keywords: ['c++', '(after care)', 'what?'], updatedAt: '2026-11-09', updatedBy: 'Ms. Rivera' })
+    const ask = (question: string) =>
+      answerQuestion({ question, knowledge: k, family: demoFamily, now: DEMO_NOW, childId: 'maya', autonomy: DEFAULT_AUTONOMY, bookedTours: [] })
+    expect(() => ask('Is there a c++ club?')).not.toThrow()
+    expect(ask('Do you have (after care) on Thursdays?').sources[0]?.id).toBe('faq.x')
+  })
+})

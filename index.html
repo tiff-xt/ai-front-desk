@@ -1,8 +1,10 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" translate="no">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <!-- The app translates itself. Browser auto-translate rewrites text nodes React owns, which crashes React. -->
+    <meta name="google" content="notranslate" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <title>Willow &amp; Wren · AI Front Desk</title>
     <meta name="description" content="An AI Front Desk prototype: grounded, personalized answers for parents in any language, and a control center for preschool staff." />

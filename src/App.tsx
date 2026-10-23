@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { storage } from '@/lib/storage'
 import { cx } from '@/lib/cx'
+import { ErrorBoundary } from '@/components/ErrorBoundary'
 import { Operator } from '@/operator/Operator'
 import { ParentApp } from '@/parent/ParentApp'
 import { useMedia } from './shell/hooks'
@@ -56,13 +57,26 @@ export function App() {
           <div className="grid min-h-0 flex-1 grid-cols-[minmax(400px,440px)_1fr]">
             <PhoneStage className="border-r border-line" />
             <div className="flex min-h-0 flex-col bg-bg">
-              <Operator />
+              <ErrorBoundary area="the staff console">
+                <Operator />
+              </ErrorBoundary>
             </div>
           </div>
         )}
         {/* On a real phone the parent app is the screen itself: no device frame. */}
-        {view === 'parent' && (phoneSized ? <ParentApp /> : <PhoneStage className="flex-1" />)}
-        {view === 'operator' && <Operator />}
+        {view === 'parent' &&
+          (phoneSized ? (
+            <ErrorBoundary area="the parent app">
+              <ParentApp />
+            </ErrorBoundary>
+          ) : (
+            <PhoneStage className="flex-1" />
+          ))}
+        {view === 'operator' && (
+          <ErrorBoundary key="operator" area="the staff console">
+            <Operator />
+          </ErrorBoundary>
+        )}
       </main>
     </div>
   )
@@ -75,7 +89,9 @@ export function PhoneStage({ className }: { className?: string }) {
       <div className="label shrink-0">Parent’s phone · Priya Shah</div>
       <div className="relative flex min-h-0 w-full max-w-[390px] flex-1 flex-col overflow-hidden rounded-[2.6rem] border-[10px] border-[#1f2a24] bg-bg pt-5 shadow-phone [max-height:820px] dark:border-[#0b0f0d]">
         <div className="absolute left-1/2 top-1.5 z-10 h-5 w-24 -translate-x-1/2 rounded-full bg-[#1f2a24] dark:bg-[#0b0f0d]" aria-hidden />
-        <ParentApp />
+        <ErrorBoundary area="the parent app">
+          <ParentApp />
+        </ErrorBoundary>
       </div>
     </div>
   )
