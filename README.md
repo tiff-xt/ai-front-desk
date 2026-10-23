@@ -57,7 +57,7 @@ npm test        # golden questions, policy and guard tests
 ## Enable the LLM (optional)
 
 1. Cloudflare dashboard → **Workers & Pages → Create → Worker**, name it `ai-front-desk-api`, deploy, then **Edit code** and paste `worker/worker.js`.
-2. **Settings → Variables and Secrets:** add `LLM_API_KEY` (secret). For a provider other than Groq, also set `LLM_BASE_URL` and `LLM_MODEL` (any OpenAI-compatible endpoint, e.g. Gemini `https://generativelanguage.googleapis.com/v1beta/openai` with `gemini-2.5-flash`).
+2. **Settings → Variables and Secrets:** add `LLM_API_KEY` (secret). The Worker picks the best chat model your key can use (providers retire models often); set `LLM_MODEL` to pin one. For a provider other than Groq, also set `LLM_BASE_URL` (any OpenAI-compatible endpoint, e.g. Gemini `https://generativelanguage.googleapis.com/v1beta/openai` with `gemini-2.5-flash`).
 3. GitHub repo → **Settings → Secrets and variables → Actions → Variables:** add `FRONT_DESK_API` = your Worker URL. Re-run the deploy workflow.
 
 The header badge switches from **Rules mode** to **LLM + guard**.

@@ -17,13 +17,12 @@
  * Settings (Worker → Settings → Variables and Secrets):
  *   LLM_API_KEY      secret, required
  *   LLM_BASE_URL     optional, any OpenAI-compatible endpoint (default: Groq)
- *   LLM_MODEL        optional (default: llama-3.3-70b-versatile)
+ *   LLM_MODEL        optional (default: the best chat model the key can use, picked from /models)
  *   ALLOWED_ORIGINS  optional, comma-separated (default: the GitHub Pages site + localhost)
  */
 
 const DEFAULTS = {
   LLM_BASE_URL: 'https://api.groq.com/openai/v1',
-  LLM_MODEL: 'llama-3.3-70b-versatile',
   ALLOWED_ORIGINS: 'https://tiff-xt.github.io,http://localhost:5173,http://localhost:4173',
 }
 
@@ -86,7 +85,7 @@ export default {
       return json({
         ok: true,
         service: 'ai-front-desk-api',
-        model: cfg.LLM_MODEL,
+        model: cfg.LLM_API_KEY ? await pickModel(cfg).catch((e) => `unavailable: ${String(e).slice(0, 120)}`) : null,
         keyConfigured: Boolean(env.LLM_API_KEY),
         endpoints: ['/understand', '/classify', '/phrase'],
       })
@@ -133,14 +132,39 @@ export default {
   },
 }
 
+/**
+ * Providers retire models often. Use LLM_MODEL if set and still served;
+ * otherwise ask the provider which models this key can use and pick the
+ * best general chat model. Cached per Worker instance.
+ */
+let resolvedModel = null
+const PREFERRED = [/llama-4-maverick/, /llama-4-scout/, /llama-3\.3-70b/, /gpt-oss-120b/, /qwen.*-32b/, /gpt-oss-20b/, /llama/]
+const NOT_CHAT = /whisper|tts|guard|embed|playai|orpheus|distil|compound|allam|prompt-guard|safeguard/i
+
+async function pickModel(cfg) {
+  if (resolvedModel) return resolvedModel
+  const res = await fetch(`${cfg.LLM_BASE_URL.replace(/\/$/, '')}/models`, { headers: { authorization: `Bearer ${cfg.LLM_API_KEY}` } })
+  if (!res.ok) throw new Error(`models ${res.status}`)
+  const ids = ((await res.json()).data ?? []).map((m) => m.id).filter((id) => !NOT_CHAT.test(id))
+  if (cfg.LLM_MODEL && ids.includes(cfg.LLM_MODEL)) return (resolvedModel = cfg.LLM_MODEL)
+  for (const re of PREFERRED) {
+    const hit = ids.find((id) => re.test(id))
+    if (hit) return (resolvedModel = hit)
+  }
+  if (!ids.length) throw new Error('no chat models available for this key')
+  return (resolvedModel = ids[0])
+}
+
 async function chat(cfg, system, user, { json = false, maxTokens = 200 } = {}) {
+  const model = await pickModel(cfg)
   const res = await fetch(`${cfg.LLM_BASE_URL.replace(/\/$/, '')}/chat/completions`, {
     method: 'POST',
     headers: { authorization: `Bearer ${cfg.LLM_API_KEY}`, 'content-type': 'application/json' },
     body: JSON.stringify({
-      model: cfg.LLM_MODEL,
+      model,
       temperature: 0.2,
-      max_tokens: maxTokens,
+      // Reasoning models spend tokens thinking; keep that minimal so answers aren't cut off.
+      ...(/gpt-oss|qwen3/.test(model) ? { reasoning_effort: 'low', max_tokens: maxTokens + 600 } : { max_tokens: maxTokens }),
       messages: [
         { role: 'system', content: system },
         { role: 'user', content: user },
@@ -148,7 +172,10 @@ async function chat(cfg, system, user, { json = false, maxTokens = 200 } = {}) {
       ...(json ? { response_format: { type: 'json_object' } } : {}),
     }),
   })
-  if (!res.ok) throw new Error(`${res.status} ${await res.text()}`)
+  if (!res.ok) {
+    if (res.status === 404) resolvedModel = null // retired mid-flight: re-pick next time
+    throw new Error(`${res.status} ${await res.text()}`)
+  }
   const data = await res.json()
   return data.choices?.[0]?.message?.content ?? ''
 }
