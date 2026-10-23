@@ -144,7 +144,7 @@ function TopBar({
           )}
           title={
             llmEnabled()
-              ? 'LLM rephrases grounded answers; every claim is checked by the grounding guard'
+              ? 'LLM classifies unusual wording and translates answers; every translation is checked both ways by the grounding guard'
               : 'No LLM configured: rules and templates only. Every answer still works.'
           }
         >

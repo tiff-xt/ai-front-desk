@@ -334,7 +334,9 @@ function Why({ a }: { a: Answer }) {
           <>
             <span className="text-ink-subtle">Guard</span>
             <span className={t.guard.passed ? 'text-willow-text' : 'text-rose-text'}>
-              {t.guard.passed ? `Passed · ${t.guard.checked.length} claims checked` : `Blocked: ${t.guard.unsupported.join(', ')}`}
+              {t.guard.passed
+                ? `Passed · ${t.guard.checked.length} claims checked both ways`
+                : `Blocked: ${[...t.guard.unsupported.map((x) => `added ${x}`), ...(t.guard.missing ?? []).map((x) => `dropped ${x}`)].join(', ')}`}
             </span>
           </>
         )}

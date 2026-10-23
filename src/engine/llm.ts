@@ -67,18 +67,17 @@ export async function understandLanguage(question: string): Promise<{ lang: stri
 }
 
 /**
- * Rewrite (English) or rewrite-and-translate a grounded answer. Handoffs and
- * drafts held for review are only ever translated faithfully, never rewritten.
- * Urgent answers never come here; they use pre-written translations.
+ * Translate a grounded answer into the parent's language: faithfully and
+ * completely, never summarized. English answers keep their exact template
+ * wording (an early test had a "rephrase" drop a child's allergy), and urgent
+ * answers use pre-written translations, so neither comes here.
  */
 export async function phrase(question: string, answer: Answer, lang = 'en'): Promise<PhraseResult | null> {
-  if (answer.status === 'urgent') return null
-  const faithful = answer.status === 'handoff' || answer.status === 'review'
-  if (faithful && lang === 'en') return null
-  const r = await post<{ text?: string }>('/phrase', { question, draft: answer.text, lang, mode: faithful ? 'translate' : 'rewrite' })
+  if (answer.status === 'urgent' || lang === 'en') return null
+  const r = await post<{ text?: string }>('/phrase', { question, draft: answer.text, lang, mode: 'translate' })
   const text = r?.text?.trim()
   if (!text) return null
-  const g = guard(text, answer.trace.facts)
+  const g = guard(text, answer.trace.facts, answer.text)
   return { text, guard: g, used: g.passed }
 }
 
@@ -88,6 +87,6 @@ export async function translateFor(lang: string, text: string): Promise<PhraseRe
   const r = await post<{ text?: string }>('/phrase', { question: '', draft: text, lang, mode: 'translate' })
   const out = r?.text?.trim()
   if (!out) return null
-  const g = guard(out, [text])
+  const g = guard(out, [text], text)
   return { text: out, guard: g, used: g.passed }
 }

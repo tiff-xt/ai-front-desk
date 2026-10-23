@@ -20,7 +20,15 @@ const MONTHS = ['january', 'february', 'march', 'april', 'may', 'june', 'july', 
 /** Weekday names in the languages we support, Monday first. Matched as whole words. */
 const WEEKDAY_WORDS: Record<string, string[]> = {
   en: WEEKDAYS.map((d) => `${d.slice(0, 3)}(?:${d.slice(3)})?`),
-  es: ['lunes', 'martes', 'mi[ée]rcoles', 'jueves', 'viernes', 's[áa]bado', 'domingo'],
+  es: [
+    'lun(?:es|\\.)',
+    'mar(?:tes|\\.)',
+    'mi[ée](?:rcoles|\\.)',
+    'jue(?:ves|\\.)',
+    'vie(?:rnes|\\.)',
+    's[áa]b(?:ado|\\.)',
+    'dom(?:ingo|\\.)',
+  ],
   fr: ['lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi', 'dimanche'],
   pt: ['segunda(?:-feira)?', 'ter[çc]a(?:-feira)?', 'quarta(?:-feira)?', 'quinta(?:-feira)?', 'sexta(?:-feira)?', 's[áa]bado', 'domingo'],
   vi: ['th[ứu] hai', 'th[ứu] ba', 'th[ứu] t[ưu]', 'th[ứu] n[ăa]m', 'th[ứu] s[áa]u', 'th[ứu] b[ảa]y', 'ch[ủu] nh[ậa]t'],
@@ -83,7 +91,12 @@ function words(text: string): string[] {
   return [...found]
 }
 
-export function guard(candidate: string, grounding: string[]): GuardResult {
+/**
+ * @param draft When given, the check runs both ways: every number in the draft
+ *   must survive into the candidate. A translation that drops "dairy allergy,
+ *   $6, 9:30am" down to "$6" is as wrong as one that invents a price.
+ */
+export function guard(candidate: string, grounding: string[], draft?: string): GuardResult {
   const allowed = grounding.join('\n')
   const allowedNums = new Set(numbers(allowed))
   const allowedWords = new Set(words(allowed))
@@ -94,5 +107,12 @@ export function guard(candidate: string, grounding: string[]): GuardResult {
   const claimsWords = words(candidate)
   const unsupported = [...claimsNums.filter((n) => !allowedNums.has(n)), ...claimsWords.filter((w) => !allowedWords.has(w))]
 
-  return { passed: unsupported.length === 0, checked: [...claimsNums, ...claimsWords], unsupported }
+  const present = new Set(claimsNums)
+  const missing = draft
+    ? [...new Set([...draft.matchAll(/\d(?:[\d.,:]*\d)?/g)].map((m) => numbers(m[0])[0]))].filter(
+        (n) => !present.has(n) && !(n.endsWith(':00') && present.has(n.slice(0, -3))),
+      )
+    : []
+
+  return { passed: unsupported.length === 0 && missing.length === 0, checked: [...claimsNums, ...claimsWords], unsupported, missing }
 }

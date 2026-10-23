@@ -269,7 +269,7 @@ export async function ask(question: string, englishHint?: string) {
       steps.push(
         p.used
           ? `LLM ${lang === 'en' ? 'rephrase' : `translation (${lang.toUpperCase()})`} passed the grounding guard`
-          : `LLM output rejected: unsupported ${p.guard.unsupported.join(', ')} → verified template used`,
+          : `LLM output rejected (${[...p.guard.unsupported.map((x) => `added ${x}`), ...(p.guard.missing ?? []).map((x) => `dropped ${x}`)].join(', ')}) → verified English used`,
       )
       if (!p.used && lang !== 'en') unverified = true
       answer = {

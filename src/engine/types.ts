@@ -58,7 +58,10 @@ export interface Trace {
 export interface GuardResult {
   passed: boolean
   checked: string[]
+  /** Claims in the output that the facts don't support (invented). */
   unsupported: string[]
+  /** Numbers in the source draft that the output dropped (omitted). */
+  missing?: string[]
 }
 
 export interface Answer {

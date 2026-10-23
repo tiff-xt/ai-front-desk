@@ -10,17 +10,17 @@ A working prototype of an AI front desk for a (fictional) preschool. Parents get
 
 Most AI front desks answer questions about **the center**. Parents ask about **their child, on a specific day**. "Can Maya come in?" depends on her temperature, the illness policy and whether Wednesday is a holiday. "What's for lunch?" depends on her dairy allergy and whether the 9:30 kitchen cutoff has passed.
 
-So the design principle is: **the AI never computes a fact.** Policy logic is deterministic code over a structured source of truth that operators edit. An LLM, if configured, only classifies wording the rules miss and rephrases a grounded draft, and a guard rejects any rephrase that introduces a number, date or weekday not in the computed facts.
+So the design principle is: **the AI never computes a fact.** Policy logic is deterministic code over a structured source of truth that operators edit. An LLM, if configured, only does two things: classifies wording the rules miss, and translates grounded answers for parents who write in another language. A guard checks every translation both ways: it rejects any number, date or weekday the facts don't support, and any number the translation dropped. English answers keep their exact template wording; in testing, a "friendlier" LLM rewrite once dropped a child's allergy, so we don't paraphrase policy.
 
 ## What to try
 
-| As a parent | As an operator |
-| --- | --- |
-| "I forgot to pack lunch, can you provide one?" → Maya's dairy-free alternate, one-tap add, live cutoff countdown | **Gaps** → *Answer once* → *Publish*: every question in the cluster is re-checked, marked Fixed, and askers are notified in-thread |
-| "Maya has a fever" → return-to-care checker that skips closures ("Wed is Veterans Day") | **Autonomy**: per-topic *Answer / Draft for me / Always me*; emergencies and other families' data are locked guardrails |
-| "Do kids need costumes for Halloween?" → hands off instead of guessing | **Knowledge**: edit hours, tuition, illness thresholds, menu; health check flags contradictions and stale sections |
-| "Who bit my child?" → privacy-safe handoff | **Inbox**: escalations with an AI-drafted reply you edit and send |
-| Demo clock → 10:15am, ask about lunch again | **Tests**: 27 golden questions re-run live against your edits |
+| As a parent                                                                                                      | As an operator                                                                                                                     |
+| ---------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| "I forgot to pack lunch, can you provide one?" → Maya's dairy-free alternate, one-tap add, live cutoff countdown | **Gaps** → _Answer once_ → _Publish_: every question in the cluster is re-checked, marked Fixed, and askers are notified in-thread |
+| "Maya has a fever" → return-to-care checker that skips closures ("Wed is Veterans Day")                          | **Autonomy**: per-topic _Answer / Draft for me / Always me_; emergencies and other families' data are locked guardrails            |
+| "Do kids need costumes for Halloween?" → hands off instead of guessing                                           | **Knowledge**: edit hours, tuition, illness thresholds, menu; health check flags contradictions and stale sections                 |
+| "Who bit my child?" → privacy-safe handoff                                                                       | **Inbox**: escalations with an AI-drafted reply you edit and send                                                                  |
+| Demo clock → 10:15am, ask about lunch again                                                                      | **Tests**: 27 golden questions re-run live against your edits                                                                      |
 
 **Any language.** A parent can write in Spanish (or Chinese, Vietnamese, French…). The question is translated to English, answered from the same facts, then translated back, and the guard checks the translation's numbers, dates and weekdays against the English facts (it understands `$1.890`, `100,4`, `jueves`, `星期四`). Spanish speakers also get a fully Spanish interface. Emergency text uses pre-written translations, never machine translation. Operators see the original and the English, reply in English, and the reply reaches the parent translated and fact-checked.
 

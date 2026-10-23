@@ -82,3 +82,23 @@ describe('grounding guard across languages', () => {
     expect(guard('Chúng tôi đóng cửa vào thứ Tư, 11/11 và mở lại vào thứ Năm 12/11 lúc 7:00 sáng.', facts).passed).toBe(true)
   })
 })
+
+describe('guard catches omissions', () => {
+  const draft =
+    "Today's lunch is mac & cheese. Because Maya's profile lists a dairy allergy, the kitchen will serve rice & black beans. We can provide a backup lunch for $6 before the kitchen count closes at 9:30am."
+  it('passes a complete translation', () => {
+    const es =
+      'El almuerzo de hoy es macarrones con queso. Como Maya tiene alergia a los lácteos, le servirán arroz con frijoles. Podemos darle un almuerzo de respaldo por $6 antes de las 9:30 a. m.'
+    expect(guard(es, [draft], draft).passed).toBe(true)
+  })
+  it('rejects a translation that drops the cutoff time', () => {
+    const g = guard('Podemos darle un almuerzo de respaldo por $6.', [draft], draft)
+    expect(g.passed).toBe(false)
+    expect(g.missing).toContain('9:30')
+  })
+  it('checks abbreviated Spanish weekdays', () => {
+    const d = "We're closed Wed, Nov 11. We reopen Thursday, Nov 12 at 7:00am."
+    expect(guard('Cerramos el mié., 11 de nov. Reabrimos el jueves 12 de nov a las 7:00 am.', [d], d).passed).toBe(true)
+    expect(guard('Cerramos el vie., 11 de nov. Reabrimos el jueves 12 de nov a las 7:00 am.', [d], d).unsupported).toContain('friday')
+  })
+})
