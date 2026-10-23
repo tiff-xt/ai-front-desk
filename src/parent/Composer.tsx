@@ -18,7 +18,7 @@ export function Composer({ suggestions }: { suggestions?: string[] }) {
   const [text, setText] = useState('')
   const [listening, setListening] = useState(false)
   const thinking = useStore((s) => s.thinking)
-  const { t, lang } = useT()
+  const { t, locale } = useT()
   const w = window as unknown as { SpeechRecognition?: SpeechCtor; webkitSpeechRecognition?: SpeechCtor }
   const Speech = w.SpeechRecognition ?? w.webkitSpeechRecognition
 
@@ -31,7 +31,7 @@ export function Composer({ suggestions }: { suggestions?: string[] }) {
   const listen = () => {
     if (!Speech) return
     const r = new Speech()
-    r.lang = lang === 'es' ? 'es-US' : 'en-US'
+    r.lang = locale.speech
     r.interimResults = true
     r.onresult = (e) =>
       setText(

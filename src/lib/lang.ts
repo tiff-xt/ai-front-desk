@@ -3,7 +3,10 @@
  * own data; a parent's language only changes how the answer is worded.
  */
 
-export type UiLang = 'en' | 'es'
+/** Languages the parent interface itself is translated into (answers work in any language). */
+export const UI_LANGS = ['en', 'es', 'zh', 'vi'] as const
+export type UiLang = (typeof UI_LANGS)[number]
+export const isUiLang = (code: string): code is UiLang => (UI_LANGS as readonly string[]).includes(code)
 
 export const LANGUAGE_NAMES: Record<string, { en: string; native: string }> = {
   en: { en: 'English', native: 'English' },

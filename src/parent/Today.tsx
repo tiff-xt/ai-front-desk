@@ -2,7 +2,7 @@ import { CalendarDays, ChevronRight, MapPin, ShieldCheck, Sparkles, Thermometer,
 import { cx } from '@/lib/cx'
 import { demoFamily } from '@/data/seed'
 import { dayStatus, lunchPlan, nextSchoolDay } from '@/engine/policy'
-import { allergenLabel, fmt, ROW_QUESTION_ES, STARTER_ENGLISH, useT } from '@/lib/i18n'
+import { allergenLabel, fmt, LOCALES, rowQuestion, STARTER_ENGLISH, useT } from '@/lib/i18n'
 import { addDays, formatTime } from '@/lib/time'
 import { ask, useStore } from '@/store/store'
 
@@ -68,7 +68,9 @@ export function Today() {
         {rows.map((r, i) => (
           <button
             key={i}
-            onClick={() => ask(lang === 'en' ? r.q : (ROW_QUESTION_ES[r.q] ?? `¿${r.label}: ${r.value}?`), r.q)}
+            onClick={() =>
+              ask(lang === 'en' ? r.q : r.q in LOCALES[lang].rowQuestions ? rowQuestion(r.q, lang) : `${r.label} · ${r.value}`, r.q)
+            }
             className="group flex w-full items-center gap-3 px-3.5 py-3 text-left transition hover:bg-surface-2"
           >
             <span

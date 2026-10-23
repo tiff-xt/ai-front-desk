@@ -22,7 +22,7 @@ So the design principle is: **the AI never computes a fact.** Policy logic is de
 | "Who bit my child?" → privacy-safe handoff                                                                       | **Inbox**: escalations with an AI-drafted reply you edit and send                                                                  |
 | Demo clock → 10:15am, ask about lunch again                                                                      | **Tests**: 27 golden questions re-run live against your edits                                                                      |
 
-**Any language.** A parent can write in Spanish (or Chinese, Vietnamese, French…). The question is translated to English, answered from the same facts, then translated back, and the guard checks the translation's numbers, dates and weekdays against the English facts (it understands `$1.890`, `100,4`, `jueves`, `星期四`). Spanish speakers also get a fully Spanish interface. Emergency text uses pre-written translations, never machine translation. Operators see the original and the English, reply in English, and the reply reaches the parent translated and fact-checked.
+**Any language.** A parent can write in Spanish (or Chinese, Vietnamese, French…). The question is translated to English, answered from the same facts, then translated back, and the guard checks the translation's numbers, dates and weekdays against the English facts (it understands `$1.890`, `100,4`, `jueves`, `星期四`). The interface itself is translated into Spanish, Chinese and Vietnamese, and switches automatically when a parent writes in one of them (adding a language is one file in `src/lib/i18n/`). Emergency text uses pre-written translations, never machine translation. Operators see the original and the English, reply in English, and the reply reaches the parent translated and fact-checked.
 
 Every answer shows its status (answered / caveat / with a person / urgent), the source with who updated it and when, and a **Why this answer** trace.
 
@@ -66,6 +66,14 @@ worker/          Cloudflare Worker that holds the LLM key
 - **Static hosting:** GitHub Pages. No backend needed; the LLM is optional and degrades to rules + templates.
 - **CI:** lint → `vitest` golden questions → build → deploy. A policy regression blocks the deploy.
 - **Accessibility:** status never relies on color alone; reduced-motion respected; keyboard reachable; light/dark themes.
+
+## Links into the demo
+
+Every view can be linked directly, e.g. for a write-up:
+
+- Staff console, Gaps tab: `?view=staff&tab=gaps`
+- Parent app in Spanish: `?view=parent&lang=es`
+- Open the guided tour: `?tour=1`
 
 ## Run locally
 

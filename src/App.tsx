@@ -5,7 +5,8 @@ import { Operator } from '@/operator/Operator'
 import { ParentApp } from '@/parent/ParentApp'
 import { useMedia } from './shell/hooks'
 import { TopBar } from './shell/TopBar'
-import { type View, WIDE } from './shell/view'
+import { linked, mirrorViewInUrl, type View, WIDE } from './shell/view'
+import { setLang, setOpTab } from '@/store/store'
 
 /**
  * The app shell: a top bar, then one of three views. "Side by side" (wide
@@ -15,7 +16,20 @@ import { type View, WIDE } from './shell/view'
 export function App() {
   const wide = useMedia(WIDE)
   const phoneSized = useMedia('(max-width: 639px)')
-  const [view, setView] = useState<View>(() => (window.matchMedia(WIDE).matches ? 'both' : 'parent'))
+  const [view, setView] = useState<View>(() => {
+    const v = linked.view()
+    const fits = window.matchMedia(WIDE).matches
+    return v && (v !== 'both' || fits) ? v : fits ? 'both' : 'parent'
+  })
+
+  // Deep links (?tab=, ?lang=) apply once on load; the view is kept in the URL from then on.
+  useEffect(() => {
+    const tab = linked.tab()
+    const lang = linked.lang()
+    if (tab) setOpTab(tab)
+    if (lang) setLang(lang)
+  }, [])
+  useEffect(() => mirrorViewInUrl(view), [view])
   const [theme, setTheme] = useState(() => document.documentElement.getAttribute('data-theme') ?? 'light')
 
   // Side by side needs room; if the window shrinks, fall back to the parent view.

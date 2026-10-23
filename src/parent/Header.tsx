@@ -1,8 +1,10 @@
+import { ChevronDown, Globe } from 'lucide-react'
 import { Mark } from '@/components/Mark'
 import { cx } from '@/lib/cx'
 import { demoFamily, roomNames } from '@/data/seed'
 import { dayStatus, isOfficeOpen } from '@/engine/policy'
-import { useT } from '@/lib/i18n'
+import { LOCALES, UI_LANGS, useT } from '@/lib/i18n'
+import type { UiLang } from '@/lib/lang'
 import { formatTime } from '@/lib/time'
 import { setChild, setLang, useStore } from '@/store/store'
 
@@ -27,19 +29,23 @@ export function Header() {
             {open ? t.officeOpen(formatTime('close' in today ? today.close : k.center.close)) : t.officeClosed}
           </div>
         </div>
-        <div role="radiogroup" aria-label="Language / Idioma" className="flex rounded-full border border-line p-0.5 text-2xs font-semibold">
-          {(['en', 'es'] as const).map((l) => (
-            <button
-              key={l}
-              role="radio"
-              aria-checked={lang === l}
-              onClick={() => setLang(l)}
-              className={cx('rounded-full px-2 py-0.5 transition', lang === l ? 'bg-ink text-bg' : 'text-ink-muted hover:text-ink')}
-            >
-              {l.toUpperCase()}
-            </button>
-          ))}
-        </div>
+        {/* A native select: on a phone it opens the system picker, which parents already know how to use. */}
+        <label className="relative flex shrink-0 items-center rounded-full border border-line py-1 pl-2 pr-6 text-xs font-medium text-ink-muted transition focus-within:border-willow hover:text-ink">
+          <Globe size={13} className="mr-1" aria-hidden />
+          <span className="sr-only">Language</span>
+          <select
+            value={lang}
+            onChange={(e) => setLang(e.target.value as UiLang)}
+            className="cursor-pointer appearance-none bg-transparent pr-0.5 focus:outline-none"
+          >
+            {UI_LANGS.map((l) => (
+              <option key={l} value={l}>
+                {LOCALES[l].name}
+              </option>
+            ))}
+          </select>
+          <ChevronDown size={12} className="pointer-events-none absolute right-2" aria-hidden />
+        </label>
       </div>
       <div className="mt-2.5 flex gap-1.5" role="radiogroup" aria-label={t.whichChild}>
         {demoFamily.children.map((c) => (

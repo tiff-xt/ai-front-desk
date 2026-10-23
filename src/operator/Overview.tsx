@@ -58,7 +58,7 @@ export function Overview({ go }: { go: (t: Tab) => void }) {
 
       <div className="grid gap-4 lg:grid-cols-[1.1fr_1fr]">
         <section className="card p-4">
-          <div className="mb-3 flex items-baseline justify-between">
+          <div className="mb-3 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
             <h3 className="font-medium">What parents ask about</h3>
             <span className="flex items-center gap-3 text-2xs text-ink-subtle">
               <span className="flex items-center gap-1">
@@ -71,7 +71,7 @@ export function Overview({ go }: { go: (t: Tab) => void }) {
           </div>
           <ul className="space-y-2">
             {stats.topics.map(([topic, t]) => (
-              <li key={topic} className="grid grid-cols-[8.5rem_1fr_1.5rem] items-center gap-2 text-sm">
+              <li key={topic} className="grid grid-cols-[7.5rem_1fr_1.5rem] items-center gap-2 text-sm sm:grid-cols-[8.5rem_1fr_1.5rem]">
                 <span className="truncate text-ink-muted">{TOPIC_LABELS[topic]}</span>
                 <span className="flex h-2.5 overflow-hidden rounded-full bg-surface-3" style={{ width: `${(t.total / max) * 100}%` }}>
                   <span className="bg-willow" style={{ width: `${(t.resolved / t.total) * 100}%` }} />
@@ -117,20 +117,27 @@ export function Overview({ go }: { go: (t: Tab) => void }) {
             .reverse()
             .slice(0, 30)
             .map((l) => (
-              <li key={l.id} className={cx('flex items-center gap-3 px-4 py-2.5 text-sm', l.live && 'animate-flash')}>
-                <span className="w-24 shrink-0 text-xs tabular text-ink-subtle">
+              // Phones: question on its own line, details beneath. Wider: one scannable row.
+              <li
+                key={l.id}
+                className={cx('flex flex-col gap-1 px-4 py-2.5 text-sm sm:flex-row sm:items-center sm:gap-3', l.live && 'animate-flash')}
+              >
+                <span className="order-2 shrink-0 text-xs tabular text-ink-subtle sm:order-none sm:w-24">
                   {formatDay(l.at.date).split(', ')[1]} · {formatTime(l.at.minutes)}
+                  <span className="sm:hidden"> · {l.who}</span>
                 </span>
-                <span className="min-w-0 flex-1 truncate">
+                <span className="order-1 min-w-0 flex-1 sm:order-none sm:truncate">
                   {l.question}
                   <LangBadge lang={l.lang} original={l.original} />
-                  <span className="ml-2 text-xs text-ink-subtle">{l.who}</span>
+                  <span className="ml-2 hidden text-xs text-ink-subtle sm:inline">{l.who}</span>
                   {l.live && (
                     <span className="ml-2 rounded-full bg-willow-soft px-1.5 text-2xs font-semibold text-willow-text">you, just now</span>
                   )}
                 </span>
-                <span className="hidden text-xs text-ink-subtle sm:inline">{TOPIC_LABELS[l.answer.topic]}</span>
-                <StatusPill status={l.answer.status} short />
+                <span className="hidden text-xs text-ink-subtle lg:inline">{TOPIC_LABELS[l.answer.topic]}</span>
+                <span className="order-3 sm:order-none">
+                  <StatusPill status={l.answer.status} short />
+                </span>
               </li>
             ))}
         </ul>

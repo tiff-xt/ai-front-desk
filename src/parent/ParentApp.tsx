@@ -32,6 +32,11 @@ export function ParentApp() {
   const last = [...messages].reverse().find((m) => m.role === 'desk')
   const followUps = last?.logId ? byId.get(last.logId)?.answer.followUps : undefined
 
+  // Screen readers hear each new reply (with its status) without losing their place.
+  const latest = [...messages].reverse().find((m) => m.role !== 'parent')
+  const latestStatus = latest?.logId ? byId.get(latest.logId)?.answer.status : undefined
+  const announcement = thinking ? t.checking : latest ? `${latestStatus ? `${t.status[latestStatus]}. ` : ''}${latest.text}` : ''
+
   return (
     <div className="flex min-h-0 flex-1 flex-col bg-bg">
       <Header />
@@ -58,6 +63,9 @@ export function ParentApp() {
           ))}
           {thinking && <Thinking />}
         </div>
+      </div>
+      <div className="sr-only" role="status" aria-live="polite">
+        {announcement}
       </div>
       <Composer suggestions={messages.length === 0 ? undefined : followUps} />
     </div>

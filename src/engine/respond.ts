@@ -44,7 +44,7 @@ export async function respond({ question, englishHint, uiLang, engine }: Respond
   let lang = 'en'
   let english = question
   if (englishHint) {
-    lang = question === englishHint ? 'en' : detectLang(question) === 'es' ? 'es' : uiLang
+    lang = question === englishHint ? 'en' : uiLang
     english = englishHint
   } else {
     const guess = detectLang(question)

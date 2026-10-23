@@ -7,7 +7,7 @@ import { localizeForParent, respond } from '@/engine/respond'
 import type { Answer, Autonomy, Topic } from '@/engine/types'
 import { formatDay, formatTime, type Clock } from '@/lib/time'
 import { SEED_LOG } from './seedLog'
-import type { UiLang } from '@/lib/lang'
+import { isUiLang, type UiLang } from '@/lib/lang'
 import { storage } from '@/lib/storage'
 
 /**
@@ -237,8 +237,8 @@ export async function ask(question: string, englishHint?: string) {
   }
   setState((s) => ({
     thinking: false,
-    // A Spanish-speaking parent gets a Spanish interface, once, without asking.
-    lang: lang === 'es' ? 'es' : s.lang,
+    // A parent who writes in a language the interface supports gets that interface, without asking.
+    lang: isUiLang(lang) ? lang : s.lang,
     log: [...s.log, entry],
     messages: [...s.messages, { id: uid(), role: 'desk', text: answer.text, at, logId: entry.id, unverified }],
     inbox: needsStaff(answer) ? [toInbox(entry), ...s.inbox] : s.inbox,

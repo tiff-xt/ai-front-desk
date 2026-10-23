@@ -5,7 +5,7 @@ import { cx } from '@/lib/cx'
 import { DEMO_NOW } from '@/engine/defaults'
 import { ask, setNow, setOpTab, useStore, type State } from '@/store/store'
 import { usePopover } from './hooks'
-import { type View } from './view'
+import { linked, type View } from './view'
 
 /**
  * A four-step guided tour that ticks itself off as the reviewer actually does
@@ -59,8 +59,9 @@ export function Tour({ setView, wide }: { setView: (v: View) => void; wide: bool
   const { open, setOpen, ref } = usePopover()
 
   // Open once on a first visit, so nobody lands without a starting point.
+  // ?tour=1 opens it on purpose (e.g. from a link in the write-up).
   useEffect(() => {
-    if (storage.get('ww-tour-seen')) return
+    if (storage.get('ww-tour-seen') && !linked.tour()) return
     const t = setTimeout(() => {
       storage.set('ww-tour-seen', '1')
       setOpen(true)
