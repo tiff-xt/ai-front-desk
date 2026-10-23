@@ -12,6 +12,8 @@ const strings = {
   greeting: (h: number): string => (h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : 'Good evening'),
   intro: (child: string) => `Here’s ${child}’s day at a glance.`,
   askAnything: 'Ask anything',
+  backToToday: 'Today’s overview',
+  conversation: 'Conversation',
   askHint: 'In your own words, in any language.',
   trust: 'Answers come from Willow & Wren’s handbook. A person steps in when it matters.',
   today: 'Today',

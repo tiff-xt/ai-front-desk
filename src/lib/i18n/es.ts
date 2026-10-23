@@ -29,6 +29,8 @@ export const es: Locale = {
     greeting: (h) => (h < 12 ? 'Buenos días' : h < 19 ? 'Buenas tardes' : 'Buenas noches'),
     intro: (child) => `Así va el día de ${child}.`,
     askAnything: 'Pregunte lo que quiera',
+    backToToday: 'Resumen de hoy',
+    conversation: 'Conversación',
     askHint: 'Con sus propias palabras, en cualquier idioma.',
     trust: 'Las respuestas vienen del manual de Willow & Wren. Una persona interviene cuando importa.',
     today: 'Hoy',

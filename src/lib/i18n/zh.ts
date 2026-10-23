@@ -28,6 +28,8 @@ export const zh: Locale = {
     greeting: (h) => (h < 12 ? '早上好' : h < 18 ? '下午好' : '晚上好'),
     intro: (child) => `这是${child}今天的概览。`,
     askAnything: '随时提问',
+    backToToday: '今日概览',
+    conversation: '对话',
     askHint: '用您自己的话，任何语言都可以。',
     trust: '答案来自 Willow & Wren 的家长手册。重要的事情由工作人员亲自处理。',
     today: '今天',

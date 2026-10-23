@@ -29,6 +29,8 @@ export const vi: Locale = {
     greeting: (h) => (h < 12 ? 'Chào buổi sáng' : h < 18 ? 'Chào buổi chiều' : 'Chào buổi tối'),
     intro: (child) => `Đây là ngày hôm nay của ${child}.`,
     askAnything: 'Hỏi bất cứ điều gì',
+    backToToday: 'Tổng quan hôm nay',
+    conversation: 'Cuộc trò chuyện',
     askHint: 'Bằng lời của bạn, bằng bất kỳ ngôn ngữ nào.',
     trust: 'Câu trả lời lấy từ sổ tay của Willow & Wren. Nhân viên sẽ trực tiếp hỗ trợ khi cần.',
     today: 'Hôm nay',

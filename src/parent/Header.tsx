@@ -32,11 +32,13 @@ export function Header() {
         {/* A native select: on a phone it opens the system picker, which parents already know how to use. */}
         <label className="relative flex shrink-0 items-center rounded-full border border-line py-1 pl-2 pr-6 text-xs font-medium text-ink-muted transition focus-within:border-willow hover:text-ink">
           <Globe size={13} className="mr-1" aria-hidden />
-          <span className="sr-only">Language</span>
+          {/* Compact face ("EN"); the invisible select on top still lists every language by its own name. */}
+          <span aria-hidden>{lang.toUpperCase()}</span>
           <select
+            aria-label="Language"
             value={lang}
             onChange={(e) => setLang(e.target.value as UiLang)}
-            className="cursor-pointer appearance-none bg-transparent pr-0.5 focus:outline-none"
+            className="absolute inset-0 cursor-pointer appearance-none opacity-0"
           >
             {UI_LANGS.map((l) => (
               <option key={l} value={l}>

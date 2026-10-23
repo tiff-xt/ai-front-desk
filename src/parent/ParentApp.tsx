@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useRef } from 'react'
-import { Bell, X } from 'lucide-react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { ArrowUp, Bell, X } from 'lucide-react'
 import { useT } from '@/lib/i18n'
 import { dismissNotice, useStore } from '@/store/store'
 import { Header } from './Header'
@@ -14,6 +14,8 @@ export function ParentApp() {
   const notices = useStore((s) => s.notices)
   const log = useStore((s) => s.log)
   const scroller = useRef<HTMLDivElement>(null)
+  const todayRef = useRef<HTMLDivElement>(null)
+  const [awayFromToday, setAwayFromToday] = useState(false)
   const { t } = useT()
 
   useEffect(() => {
@@ -58,8 +60,30 @@ export function ParentApp() {
           <X size={14} className="opacity-70" />
         </button>
       )}
-      <div ref={scroller} className="scrollbar-thin relative min-h-0 flex-1 overflow-y-auto px-3 pb-3 pt-2">
-        {messages.length === 0 ? <Today /> : <div className="h-2" />}
+      <div
+        ref={scroller}
+        onScroll={(e) => setAwayFromToday(e.currentTarget.scrollTop > (todayRef.current?.offsetHeight ?? 400) - 80)}
+        className="scrollbar-thin relative min-h-0 flex-1 overflow-y-auto px-3 pb-3 pt-2"
+      >
+        {/* Today's overview stays at the top of the thread: the conversation continues beneath it, never replaces it. */}
+        <div ref={todayRef}>
+          <Today />
+        </div>
+        {awayFromToday && messages.length > 0 && (
+          <button
+            onClick={() => scroller.current?.scrollTo({ top: 0, behavior: 'smooth' })}
+            className="sticky top-1 z-10 mx-auto -mb-8 flex animate-fade-in items-center gap-1 rounded-full border border-line bg-surface/95 px-3 py-1.5 text-xs font-medium text-ink shadow-lift backdrop-blur"
+          >
+            <ArrowUp size={13} /> {t.backToToday}
+          </button>
+        )}
+        {messages.length > 0 && (
+          <div className="my-4 flex items-center gap-3 text-2xs font-semibold uppercase tracking-wider text-ink-subtle" aria-hidden>
+            <span className="h-px flex-1 bg-line" />
+            {t.conversation}
+            <span className="h-px flex-1 bg-line" />
+          </div>
+        )}
         <div className="space-y-3">
           {messages.map((m) => (
             <div key={m.id} data-bubble>
