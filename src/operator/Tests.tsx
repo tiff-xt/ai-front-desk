@@ -1,6 +1,7 @@
 import { useMemo } from 'react'
 import { Check, X } from 'lucide-react'
-import { cx, StatusPill } from '@/components/ui'
+import { cx } from '@/lib/cx'
+import { StatusPill } from '@/components/ui'
 import { demoFamily } from '@/data/seed'
 import { answerQuestion } from '@/engine/answer'
 import { DEMO_NOW } from '@/engine/defaults'

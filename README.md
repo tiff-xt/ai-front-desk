@@ -26,21 +26,42 @@ So the design principle is: **the AI never computes a fact.** Policy logic is de
 
 Every answer shows its status (answered / caveat / with a person / urgent), the source with who updated it and when, and a **Why this answer** trace.
 
-## Architecture
+## Code map
+
+Three layers, and dependencies only point down: **UI → store → engine → data**. The engine has no React and no state, so everything it does is unit-tested.
 
 ```
-src/engine/
-  understand.ts   safety screens → intents → entities (dates, symptoms, age bands). Rules first, always.
-  policy.ts       pure policy logic: day status, earliest return, lunch plan, tour slots, family tuition
-  answer.ts       pipeline: understand → resolve → autonomy → cited Answer (+ staff draft)
-  guard.ts        grounding guard for LLM output
-  retrieve.ts     inspectable keyword retrieval over handbook sections
-  health.ts       contradiction + staleness checks on the source of truth
-  gaps.ts         clusters unanswered questions
-  evals.ts        golden questions (CI + live Tests tab)
-src/store/        one store shared by both views (localStorage + BroadcastChannel)
-worker/worker.js  Cloudflare Worker: holds the LLM key; /classify and /phrase only
+src/
+  data/          The center's source of truth (fictional): types.ts, seed.ts
+  engine/        Pure logic. No React, no state.
+    respond.ts     ★ start here: the whole path of one question, in four numbered steps
+    answer.ts      rules pipeline: understand → resolve per topic → autonomy → cited Answer
+    understand.ts  safety screens first, then intents and entities (dates, symptoms, ages)
+    policy.ts      policy math: day status, earliest return, lunch plan, tour slots, tuition
+    retrieve.ts    keyword search over handbook sections (inspectable on purpose)
+    guard.ts       checks LLM output both ways: nothing invented, nothing dropped, any language
+    llm.ts         client for the Worker (/understand, /classify, /phrase); optional
+    health.ts      contradictions and stale data in the source of truth
+    gaps.ts        groups unanswered questions so staff answer once
+    evals.ts       golden questions, run by CI and by the Staff → Tests tab
+  store/         One shared store (localStorage + BroadcastChannel) and its actions
+  lib/           Small utilities: time, i18n (parent UI strings), lang, storage, ics, cx
+  components/    Shared UI primitives: Mark, StatusPill, Segmented, StaffAvatar…
+  shell/         App chrome: top bar, guided tour, demo menu
+  parent/        The parent front desk (Header, Today, Thread, Composer, cards/)
+  operator/      The staff console (Overview, Inbox, Gaps, knowledge/, Autonomy, Tests)
+worker/          Cloudflare Worker that holds the LLM key
 ```
+
+### How a question flows
+
+1. `parent/Composer.tsx` calls `ask()` in `store/store.ts`.
+2. `ask()` calls `respond()` in `engine/respond.ts`:
+   1. **Language:** non-English is translated to English (`llm.understandLanguage`).
+   2. **Answer:** `answerQuestion()` (`engine/answer.ts`) runs the safety screens and intent rules (`understand.ts`), computes facts (`policy.ts` or `retrieve.ts`), applies the operator's autonomy setting, and returns an `Answer` with status, text, card, sources and a trace.
+   3. **Classify:** only if the rules found nothing, the LLM suggests a topic and the rules answer it.
+   4. **Localize:** translation into the parent's language, checked by `guard.ts`.
+3. `ask()` saves the answer to the log, adds it to the staff inbox if it needs a person, and the UI re-renders: `parent/Thread.tsx` on the phone and `operator/*` in the console.
 
 - **Static hosting:** GitHub Pages. No backend needed; the LLM is optional and degrades to rules + templates.
 - **CI:** lint → `vitest` golden questions → build → deploy. A policy regression blocks the deploy.

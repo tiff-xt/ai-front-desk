@@ -1,13 +1,14 @@
 import { useEffect, useMemo, useRef } from 'react'
 import { BookMarked, FlaskConical, Inbox as InboxIcon, LayoutDashboard, Lightbulb, SlidersHorizontal } from 'lucide-react'
-import { cx } from '@/components/ui'
+import { cx } from '@/lib/cx'
+import { StaffAvatar } from '@/components/ui'
 import { healthCheck } from '@/engine/health'
 import { setOpTab, useStore, type OpTab } from '@/store/store'
 import { Overview } from './Overview'
 import { Inbox } from './Inbox'
 import { gapItems } from '@/store/selectors'
 import { Gaps } from './Gaps'
-import { KnowledgeView } from './Knowledge'
+import { KnowledgeView } from './knowledge/KnowledgeView'
 import { AutonomyView } from './Autonomy'
 import { Tests } from './Tests'
 
@@ -42,7 +43,7 @@ export function Operator() {
   }, [tab])
 
   return (
-    <div className="flex h-full min-h-0 flex-col">
+    <div className="flex min-h-0 flex-1 flex-col">
       <div className="relative flex shrink-0 items-center border-b border-line bg-surface/60">
         <nav
           ref={nav}
@@ -66,9 +67,7 @@ export function Operator() {
           ))}
         </nav>
         <div className="hidden shrink-0 items-center gap-2 pr-5 text-xs text-ink-muted xl:flex" title="You're viewing the staff console">
-          <span className="grid h-6 w-6 place-items-center rounded-full bg-dusk-soft font-serif text-2xs font-semibold text-dusk-text">
-            ER
-          </span>
+          <StaffAvatar size="sm" />
           Ms. Rivera · Director
         </div>
       </div>

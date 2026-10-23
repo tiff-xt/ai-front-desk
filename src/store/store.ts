@@ -3,12 +3,12 @@ import { demoFamily, seedKnowledge } from '@/data/seed'
 import type { HandbookSection, Knowledge } from '@/data/types'
 import { answerQuestion, needsStaff } from '@/engine/answer'
 import { DEFAULT_AUTONOMY, DEMO_NOW, TOPIC_LABELS } from '@/engine/defaults'
-import { classify, llmEnabled, phrase, translateFor, understandLanguage } from '@/engine/llm'
+import { localizeForParent, respond } from '@/engine/respond'
 import type { Answer, Autonomy, Topic } from '@/engine/types'
-import { understand } from '@/engine/understand'
 import { formatDay, formatTime, type Clock } from '@/lib/time'
 import { SEED_LOG } from './seedLog'
-import { detectLang, UNVERIFIED_NOTE, URGENT, type UiLang } from '@/lib/lang'
+import type { UiLang } from '@/lib/lang'
+import { storage } from '@/lib/storage'
 
 /**
  * One small store for both perspectives. The parent phone and the operator
@@ -82,11 +82,10 @@ export interface State {
   lang: UiLang
   /** Which control-center tab is open; in the store so the guided tour can take you there. */
   opTab: OpTab
-  /** Ids of log entries an operator just fixed, for the "Fixed ✓" moment. */
-  justFixed: string[]
 }
 
-const KEY = 'ww-state-v4'
+// Bump when State changes shape; older saves are merged over fresh defaults either way.
+const KEY = 'ww-state-v5'
 const uid = () => Math.random().toString(36).slice(2, 10)
 
 function initial(): State {
@@ -132,7 +131,6 @@ function initial(): State {
     thinking: false,
     lang: 'en',
     opTab: 'overview',
-    justFixed: [],
   }
 }
 
@@ -156,26 +154,22 @@ function toInbox(l: LogEntry): InboxItem {
 }
 
 function load(): State {
+  const fresh = initial()
+  const raw = storage.get(KEY)
+  if (!raw) return fresh
   try {
-    const raw = localStorage.getItem(KEY)
-    if (raw) return { ...(JSON.parse(raw) as State), thinking: false, justFixed: [] }
+    // Merge over defaults so a save from an older version can't leave a field undefined.
+    return { ...fresh, ...(JSON.parse(raw) as Partial<State>), thinking: false }
   } catch {
-    /* private mode or corrupted: start fresh */
+    return fresh // corrupted: start fresh
   }
-  return initial()
 }
 
 let state: State = typeof window === 'undefined' ? initial() : load()
 const listeners = new Set<() => void>()
 const channel = typeof BroadcastChannel !== 'undefined' ? new BroadcastChannel('ww-front-desk') : null
 
-function persist() {
-  try {
-    localStorage.setItem(KEY, JSON.stringify(state))
-  } catch {
-    /* storage full or blocked: the demo still works in memory */
-  }
-}
+const persist = () => storage.set(KEY, JSON.stringify(state))
 
 export function setState(fn: (s: State) => Partial<State>, broadcast = true) {
   state = { ...state, ...fn(state) }
@@ -211,79 +205,20 @@ export async function ask(question: string, englishHint?: string) {
   const at = state.now
   setState((s) => ({ messages: [...s.messages, { id: uid(), role: 'parent', text: q, at }], thinking: true }))
   const started = performance.now()
-  const steps: string[] = []
 
-  // 1. Language. English skips the round-trip; anything else is translated to English for the engine.
-  let lang = 'en'
-  let english = q
-  const guess = englishHint ? 'en' : detectLang(q)
-  if (englishHint) {
-    // A tapped suggestion: we know its meaning; its language is whatever it was written in.
-    lang = q === englishHint ? 'en' : detectLang(q) === 'es' ? 'es' : state.lang
-    english = englishHint
-  } else if (guess !== 'en') {
-    const u = llmEnabled() ? await understandLanguage(q) : null
-    if (u) {
-      lang = u.lang
-      english = u.english
-      if (lang !== 'en') steps.push(`Detected ${lang.toUpperCase()}; engine reasoned over the English translation: “${english}”`)
-    } else if (guess === 'es') {
-      lang = 'es'
-      steps.push('Detected Spanish; no translator configured, so the engine saw the original text')
-    }
-  }
-  // A Spanish-speaking parent gets a Spanish interface, once, without asking.
-  if (lang === 'es' && state.lang !== 'es') setState(() => ({ lang: 'es' }))
-
-  const input = {
-    question: english,
-    knowledge: state.knowledge,
-    family: demoFamily,
-    now: at,
-    childId: state.childId,
-    autonomy: state.autonomy,
-    bookedTours: state.bookedTours,
-  }
-  let answer = answerQuestion(input)
-  let unverified = false
-
-  if (llmEnabled()) {
-    // 2. Rules first; the LLM only classifies when the rules found nothing.
-    if (answer.topic === 'unknown') {
-      const topic = await classify(english)
-      if (topic && topic !== 'unknown') {
-        const u = { ...understand(english, state.knowledge, at.date), topic, matched: `LLM classifier → ${topic}` }
-        const retry = answerQuestion(input, u)
-        if (retry.topic !== 'unknown') answer = { ...retry, trace: { ...retry.trace, classifier: 'llm' } }
-      }
-    }
-  }
-
-  // 3. Wording. Urgent text is pre-written per language; everything else may be rephrased/translated behind the guard.
-  if (answer.status === 'urgent') {
-    const urgent = URGENT[lang]
-    if (urgent && lang !== 'en') {
-      answer = { ...answer, text: urgent(state.knowledge.center.phone) }
-      steps.push(`Emergency text: pre-written ${lang.toUpperCase()} translation (never machine-translated)`)
-    }
-  } else if (llmEnabled()) {
-    const p = await phrase(english, answer, lang)
-    if (p) {
-      steps.push(
-        p.used
-          ? `LLM ${lang === 'en' ? 'rephrase' : `translation (${lang.toUpperCase()})`} passed the grounding guard`
-          : `LLM output rejected (${[...p.guard.unsupported.map((x) => `added ${x}`), ...(p.guard.missing ?? []).map((x) => `dropped ${x}`)].join(', ')}) → verified English used`,
-      )
-      if (!p.used && lang !== 'en') unverified = true
-      answer = {
-        ...answer,
-        text: p.used ? p.text : answer.text,
-        trace: { ...answer.trace, guard: p.guard, writer: p.used ? 'llm' : 'template' },
-      }
-    }
-  }
-  answer = { ...answer, trace: { ...answer.trace, steps: [...answer.trace.steps, ...steps] } }
-  if (unverified && UNVERIFIED_NOTE[lang]) answer = { ...answer, text: `${UNVERIFIED_NOTE[lang]}\n\n${answer.text}` }
+  const { answer, lang, english, unverified } = await respond({
+    question: q,
+    englishHint,
+    uiLang: state.lang,
+    engine: {
+      knowledge: state.knowledge,
+      family: demoFamily,
+      now: at,
+      childId: state.childId,
+      autonomy: state.autonomy,
+      bookedTours: state.bookedTours,
+    },
+  })
 
   // A short, honest pause reads as "checking", not lag; never longer than needed.
   const elapsed = performance.now() - started
@@ -302,18 +237,12 @@ export async function ask(question: string, englishHint?: string) {
   }
   setState((s) => ({
     thinking: false,
+    // A Spanish-speaking parent gets a Spanish interface, once, without asking.
+    lang: lang === 'es' ? 'es' : s.lang,
     log: [...s.log, entry],
     messages: [...s.messages, { id: uid(), role: 'desk', text: answer.text, at, logId: entry.id, unverified }],
     inbox: needsStaff(answer) ? [toInbox(entry), ...s.inbox] : s.inbox,
   }))
-}
-
-/** Translate a staff message into the parent's language, guarded; falls back to the English original. */
-async function toParent(text: string, lang: string): Promise<Pick<Message, 'text' | 'original' | 'unverified'>> {
-  if (lang === 'en' || !llmEnabled()) return { text }
-  const t = await translateFor(lang, text)
-  if (t?.used) return { text: t.text, original: text }
-  return { text: UNVERIFIED_NOTE[lang] ? `${UNVERIFIED_NOTE[lang]}\n\n${text}` : text, unverified: true }
 }
 
 export function giveFeedback(logId: string, feedback: 'up' | 'down') {
@@ -340,7 +269,7 @@ export async function resolveInbox(id: string, reply?: string) {
   const at = state.now
   setState((s) => ({ inbox: s.inbox.map((i) => (i.id === id ? { ...i, status: 'done' } : i)) }))
   if (!reply || !item.live) return
-  const msg = await toParent(reply, item.lang ?? 'en')
+  const msg = await localizeForParent(reply, item.lang ?? 'en')
   setState((s) => ({
     messages: [...s.messages, { id: uid(), role: 'staff', at, ...msg }],
     notices: [{ id: uid(), at, kind: 'reply' }, ...s.notices],
@@ -414,7 +343,7 @@ export function publishAnswer(section: Omit<HandbookSection, 'id' | 'updatedAt' 
   const at = state.now
   if (liveFixed.length) {
     const first = liveFixed[0]
-    void toParent(`Update on “${first.original ?? first.question}”: ${section.body}`, first.lang ?? 'en').then((msg) =>
+    void localizeForParent(`Update on “${first.original ?? first.question}”: ${section.body}`, first.lang ?? 'en').then((msg) =>
       setState((s) => ({
         messages: [...s.messages, { id: uid(), role: 'staff', at, ...msg }],
         notices: [{ id: uid(), at, kind: 'answer' }, ...s.notices],
@@ -424,7 +353,6 @@ export function publishAnswer(section: Omit<HandbookSection, 'id' | 'updatedAt' 
   setState((s) => ({
     knowledge,
     log,
-    justFixed: fixed,
     inbox: s.inbox.map((i) => (i.logId && fixed.includes(i.logId) ? { ...i, status: 'done' } : i)),
   }))
   return { id, fixed }

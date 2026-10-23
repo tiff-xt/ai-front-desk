@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { BellRing, Check, Lightbulb, Plus, ThumbsDown, Wand2, X } from 'lucide-react'
-import { cx, Empty, LangBadge } from '@/components/ui'
+import { cx } from '@/lib/cx'
+import { Empty, LangBadge } from '@/components/ui'
 import { clusterQuestions, type Cluster } from '@/engine/gaps'
 import { formatDay, formatTime } from '@/lib/time'
 import { gapItems } from '@/store/selectors'

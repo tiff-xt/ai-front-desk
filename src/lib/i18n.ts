@@ -280,8 +280,7 @@ export const ROW_QUESTION_ES: Record<string, string> = {
   "What's for lunch today?": '¿Qué hay de almuerzo hoy?',
 }
 
-/** Allergen and room names as shown to parents. */
-export const ALLERGENS_ES: Record<string, string> = {
+const ALLERGENS_ES: Record<string, string> = {
   dairy: 'lácteos',
   egg: 'huevo',
   wheat: 'trigo',
@@ -289,6 +288,9 @@ export const ALLERGENS_ES: Record<string, string> = {
   fish: 'pescado',
   sesame: 'sésamo',
 }
+
+/** Allergen names as shown to parents ("dairy" / "lácteos"). */
+export const allergenLabel = (a: string, lang: UiLang) => (lang === 'es' ? (ALLERGENS_ES[a] ?? a) : a)
 
 const DICTS: Record<UiLang, Dict> = { en, es }
 

@@ -1,6 +1,7 @@
 import { useMemo } from 'react'
 import { ArrowRight, ThumbsDown } from 'lucide-react'
-import { cx, LangBadge, StatusPill } from '@/components/ui'
+import { cx } from '@/lib/cx'
+import { LangBadge, StatusPill } from '@/components/ui'
 import { TOPIC_LABELS } from '@/engine/defaults'
 import { formatDay, formatTime } from '@/lib/time'
 import { gapItems, resolvedByDesk } from '@/store/selectors'

@@ -1,11 +1,10 @@
 import type { ReactNode } from 'react'
 import { AlertTriangle, CircleCheck, CircleDashed, Clock3, UserRound } from 'lucide-react'
 import type { Status } from '@/engine/types'
-
-export const cx = (...c: (string | false | null | undefined)[]) => c.filter(Boolean).join(' ')
+import { cx } from '@/lib/cx'
 
 /** Status always pairs a label and an icon with its color, so it never relies on color alone. */
-export const STATUS: Record<Status, { label: string; cls: string; Icon: typeof CircleCheck }> = {
+const STATUS: Record<Status, { label: string; cls: string; Icon: typeof CircleCheck }> = {
   answered: { label: 'Answered', cls: 'bg-willow-soft text-willow-text', Icon: CircleCheck },
   caveat: { label: 'Answered, with a caveat', cls: 'bg-honey-soft text-honey-text', Icon: CircleDashed },
   review: { label: 'Staff is reviewing', cls: 'bg-dusk-soft text-dusk-text', Icon: Clock3 },
@@ -65,6 +64,19 @@ export function Empty({ icon, title, body }: { icon: ReactNode; title: string; b
       <div className="font-medium">{title}</div>
       <p className="max-w-xs text-sm text-ink-muted">{body}</p>
     </div>
+  )
+}
+
+/** The director's avatar, used wherever a person (not the desk) is speaking or responsible. */
+export function StaffAvatar({ size = 'md', className }: { size?: 'sm' | 'md' | 'lg'; className?: string }) {
+  const dims = { sm: 'h-6 w-6 text-2xs', md: 'h-7 w-7 text-2xs', lg: 'h-10 w-10 text-sm' }[size]
+  return (
+    <span
+      className={cx('grid shrink-0 place-items-center rounded-full bg-dusk-soft font-serif font-semibold text-dusk-text', dims, className)}
+      aria-hidden
+    >
+      ER
+    </span>
   )
 }
 

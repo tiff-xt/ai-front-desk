@@ -10,7 +10,8 @@ import {
   Stethoscope,
   UtensilsCrossed,
 } from 'lucide-react'
-import { cx, Empty, LangBadge } from '@/components/ui'
+import { cx } from '@/lib/cx'
+import { Empty, LangBadge } from '@/components/ui'
 import { languageName } from '@/lib/lang'
 import { formatDay, formatTime } from '@/lib/time'
 import { resolveInbox, useStore, type InboxItem, type InboxKind } from '@/store/store'

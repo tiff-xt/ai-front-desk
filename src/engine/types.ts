@@ -41,7 +41,6 @@ export type Card =
   | { kind: 'tours' }
   | { kind: 'handoff'; reason: string }
   | { kind: 'urgent' }
-  | { kind: 'events'; items: { date: ISODate; title: string; note: string; childName: string }[] }
 
 export type Symptom = 'fever' | 'gi' | 'pinkeye' | 'rash' | 'cold' | 'lice' | 'unsure'
 
