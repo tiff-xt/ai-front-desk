@@ -1,0 +1,4 @@
+# Optional: deploy from the command line with `npx wrangler deploy` (or paste worker.js in the dashboard).
+name = "ai-front-desk-api"
+main = "worker.js"
+compatibility_date = "2025-09-01"

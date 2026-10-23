@@ -1,0 +1,445 @@
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { ArrowUp, Bell, BookOpen, ChevronDown, Mic, Sparkles, ThumbsDown, ThumbsUp, X } from 'lucide-react'
+import { Mark } from '@/components/Mark'
+import { cx, StatusPill } from '@/components/ui'
+import { demoFamily, roomNames } from '@/data/seed'
+import { dayStatus, isOfficeOpen, lunchPlan, nextSchoolDay } from '@/engine/policy'
+import type { Answer, Citation } from '@/engine/types'
+import { addDays, formatDay, formatTime } from '@/lib/time'
+import { ask, dismissNotice, giveFeedback, setChild, useStore, type LogEntry, type Message } from '@/store/store'
+import { AnswerCard } from './cards'
+
+const STARTERS = [
+  'Are you open on Veterans Day?',
+  'I forgot to pack lunch. Can you provide one today?',
+  'Maya has a fever, can she come in?',
+  'What is the tuition for infants?',
+  'How can I schedule a tour?',
+  'Do kids need anything for the Thanksgiving feast?',
+]
+
+export function ParentApp() {
+  const messages = useStore((s) => s.messages)
+  const thinking = useStore((s) => s.thinking)
+  const notices = useStore((s) => s.notices)
+  const log = useStore((s) => s.log)
+  const scroller = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    scroller.current?.scrollTo({ top: scroller.current.scrollHeight, behavior: 'smooth' })
+  }, [messages.length, thinking])
+
+  const byId = useMemo(() => new Map(log.map((l) => [l.id, l])), [log])
+  const last = [...messages].reverse().find((m) => m.role === 'desk')
+  const followUps = last?.logId ? byId.get(last.logId)?.answer.followUps : undefined
+
+  return (
+    <div className="flex h-full flex-col bg-bg">
+      <Header />
+      {notices[0] && (
+        <button
+          onClick={() => {
+            dismissNotice(notices[0].id)
+            scroller.current?.scrollTo({ top: scroller.current.scrollHeight, behavior: 'smooth' })
+          }}
+          className="mx-3 mt-2 flex animate-rise-in items-center gap-2 rounded-xl bg-dusk px-3 py-2 text-left text-sm text-white shadow-lift dark:text-bg"
+        >
+          <Bell size={15} className="shrink-0" />
+          <span className="flex-1">{notices[0].text}</span>
+          <X size={14} className="opacity-70" />
+        </button>
+      )}
+      <div ref={scroller} className="scrollbar-thin flex-1 overflow-y-auto px-3 pb-3 pt-2">
+        {messages.length === 0 ? <Today /> : <div className="h-2" />}
+        <div className="space-y-3">
+          {messages.map((m) => (
+            <Bubble key={m.id} m={m} entry={m.logId ? byId.get(m.logId) : undefined} />
+          ))}
+          {thinking && <Thinking />}
+        </div>
+      </div>
+      <Composer suggestions={messages.length === 0 ? STARTERS : followUps} />
+    </div>
+  )
+}
+
+function Header() {
+  const k = useStore((s) => s.knowledge)
+  const now = useStore((s) => s.now)
+  const childId = useStore((s) => s.childId)
+  const open = isOfficeOpen(k, now)
+  const today = dayStatus(k, now.date)
+  return (
+    <header className="border-b border-line bg-surface/80 px-3 pb-2.5 pt-3 backdrop-blur">
+      <div className="flex items-center gap-2.5">
+        <Mark size={34} />
+        <div className="min-w-0 flex-1 leading-tight">
+          <div className="font-serif text-[17px] font-semibold tracking-tight">
+            Willow <em className="font-normal text-wren">&amp;</em> Wren
+          </div>
+          <div className="flex items-center gap-1.5 text-xs text-ink-muted">
+            <span className={cx('h-1.5 w-1.5 rounded-full', open ? 'bg-willow' : 'bg-ink-subtle')} />
+            {open
+              ? `Front desk · office open until ${formatTime('close' in today ? today.close : k.center.close)}`
+              : 'Front desk · answers 24/7, office closed'}
+          </div>
+        </div>
+      </div>
+      <div className="mt-2.5 flex gap-1.5" role="radiogroup" aria-label="Which child">
+        {demoFamily.children.map((c) => (
+          <button
+            key={c.id}
+            role="radio"
+            aria-checked={childId === c.id}
+            onClick={() => setChild(c.id)}
+            className={cx(
+              'flex items-center gap-1.5 rounded-full border py-0.5 pl-0.5 pr-2.5 text-xs font-medium transition',
+              childId === c.id ? 'border-willow bg-willow-soft text-willow-text' : 'border-line text-ink-muted hover:text-ink',
+            )}
+          >
+            <span
+              className={cx(
+                'grid h-5 w-5 place-items-center rounded-full text-2xs font-semibold',
+                c.id === 'maya' ? 'bg-wren-soft text-wren-text' : 'bg-honey-soft text-honey-text',
+              )}
+            >
+              {c.name[0]}
+            </span>
+            {c.name} · {roomNames[c.room].split(' ')[0]}
+          </button>
+        ))}
+      </div>
+    </header>
+  )
+}
+
+/** The answer to the question a parent hasn't asked yet: today, at a glance, for their child. */
+function Today() {
+  const k = useStore((s) => s.knowledge)
+  const now = useStore((s) => s.now)
+  const childId = useStore((s) => s.childId)
+  const child = demoFamily.children.find((c) => c.id === childId)!
+  const s = dayStatus(k, now.date)
+  const first = demoFamily.parentName.split(' ')[0]
+  const greeting = now.minutes < 12 * 60 ? 'Good morning' : now.minutes < 17 * 60 ? 'Good afternoon' : 'Good evening'
+  const plan = lunchPlan(k, child, now.date, now)
+  const upcoming = k.calendar.closures.filter((c) => c.date > now.date && c.date <= addDays(now.date, 10))
+  const events = k.calendar.events.filter((e) => e.room === child.room && e.date >= now.date && e.date <= addDays(now.date, 7))
+  const next = nextSchoolDay(k, now.date)
+
+  const rows: { label: string; value: string; q: string; tone?: 'rose' | 'honey' }[] = []
+  rows.push(
+    s.state === 'open'
+      ? { label: 'Today', value: `Open until ${formatTime(s.close)}`, q: 'What are your hours today?' }
+      : s.state === 'early'
+        ? { label: 'Today', value: `Early close at ${formatTime(s.close)} · ${s.name}`, q: 'What time do you close today?', tone: 'honey' }
+        : {
+            label: 'Today',
+            value: `Closed${'name' in s ? ` · ${s.name}` : ''}${next ? `. Back ${formatDay(next)}` : ''}`,
+            q: 'Are you open today?',
+            tone: 'rose',
+          },
+  )
+  if (plan.menu && (s.state === 'open' || s.state === 'early'))
+    rows.push({
+      label: 'Lunch',
+      value:
+        child.band === 'infant'
+          ? `${child.name} eats from home`
+          : plan.servesAlternate
+            ? `${plan.menu.alternate} (${plan.conflicts.join('/')}-free for ${child.name})`
+            : plan.menu.lunch,
+      q: "What's for lunch today?",
+    })
+  for (const c of upcoming.slice(0, 2))
+    rows.push({
+      label: formatDay(c.date).split(',')[0] + ' ' + formatDay(c.date).split(' ')[2],
+      value: c.kind === 'closed' ? `Closed · ${c.name}` : `Closes ${formatTime(c.closeAt!)} · ${c.name}`,
+      q: `Are you open on ${formatDay(c.date)}?`,
+      tone: c.kind === 'closed' ? 'rose' : 'honey',
+    })
+  for (const e of events.slice(0, 1))
+    rows.push({ label: formatDay(e.date).split(',')[0], value: `${e.title}: ${e.note}`, q: `What's happening ${formatDay(e.date)}?` })
+
+  return (
+    <div className="animate-fade-in pb-3 pt-2">
+      <h1 className="font-serif text-[26px] font-semibold leading-tight tracking-tight">
+        {greeting}, {first}.
+      </h1>
+      <p className="mt-1 text-sm text-ink-muted">
+        Ask anything about {child.name}’s day, our policies or your account. Answers come from Willow &amp; Wren’s own handbook, and a
+        person steps in when it matters.
+      </p>
+      <div className="card mt-4 divide-y divide-line overflow-hidden">
+        {rows.map((r, i) => (
+          <button
+            key={i}
+            onClick={() => ask(r.q)}
+            className="flex w-full items-start gap-3 px-3.5 py-2.5 text-left transition hover:bg-surface-2"
+          >
+            <span className="w-[4.5rem] shrink-0 pt-px text-2xs font-semibold uppercase tracking-wider text-ink-subtle">{r.label}</span>
+            <span className={cx('flex-1 text-sm', r.tone === 'rose' && 'text-rose-text', r.tone === 'honey' && 'text-honey-text')}>
+              {r.value}
+            </span>
+          </button>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function Bubble({ m, entry }: { m: Message; entry?: LogEntry }) {
+  if (m.role === 'parent')
+    return (
+      <div className="flex animate-rise-in justify-end">
+        <div className="max-w-[85%] rounded-2xl rounded-br-md bg-willow px-3.5 py-2 text-[15px] text-white dark:text-bg">{m.text}</div>
+      </div>
+    )
+  if (m.role === 'system')
+    return (
+      <div className="flex animate-rise-in justify-center">
+        <div className="max-w-[90%] rounded-full bg-willow-soft px-3 py-1 text-center text-xs font-medium text-willow-text">✓ {m.text}</div>
+      </div>
+    )
+  if (m.role === 'staff')
+    return (
+      <div className="flex animate-rise-in gap-2">
+        <div className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-dusk-soft font-serif text-2xs font-semibold text-dusk-text">
+          ER
+        </div>
+        <div className="max-w-[85%]">
+          <div className="mb-0.5 text-2xs font-semibold text-dusk-text">Ms. Rivera · Director</div>
+          <div className="whitespace-pre-line rounded-2xl rounded-tl-md border border-dusk/20 bg-dusk-soft px-3.5 py-2 text-[15px]">
+            {m.text}
+          </div>
+        </div>
+      </div>
+    )
+  if (!entry) return null
+  return <DeskAnswer entry={entry} />
+}
+
+function DeskAnswer({ entry }: { entry: LogEntry }) {
+  const k = useStore((s) => s.knowledge)
+  const now = useStore((s) => s.now)
+  const a = entry.answer
+  const [why, setWhy] = useState(false)
+  return (
+    <div className="flex animate-rise-in gap-2">
+      <div className="mt-0.5 shrink-0">
+        <Mark size={26} />
+      </div>
+      <div className="min-w-0 max-w-[92%] flex-1">
+        <div className={cx('card overflow-hidden shadow-card', a.status === 'urgent' && 'border-rose/40')}>
+          <div className="px-3.5 pb-2.5 pt-3">
+            <StatusPill status={a.status} />
+            <p className="mt-1.5 text-[15px] leading-relaxed">{a.text}</p>
+          </div>
+          {a.card && (
+            <div className="border-t border-line bg-surface-2/60 px-3.5 py-3">
+              <AnswerCard card={a.card} k={k} now={now} logId={entry.id} />
+            </div>
+          )}
+          {a.sources.length > 0 && (
+            <div className="space-y-1 border-t border-line px-3.5 py-2">
+              {a.sources.map((s) => (
+                <SourceChip key={s.id} s={s} />
+              ))}
+            </div>
+          )}
+        </div>
+        <div className="mt-1 flex items-center gap-0.5 pl-1">
+          <button onClick={() => setWhy(!why)} className="btn-ghost !gap-1 !px-2 !py-1 text-xs" aria-expanded={why}>
+            <Sparkles size={13} /> Why this answer
+            <ChevronDown size={13} className={cx('transition', why && 'rotate-180')} />
+          </button>
+          <span className="flex-1" />
+          {entry.feedback ? (
+            <span className="px-2 text-xs text-ink-subtle">
+              {entry.feedback === 'up' ? 'Thanks!' : 'Thanks. Staff will review this one.'}
+            </span>
+          ) : (
+            <>
+              <button aria-label="Helpful" onClick={() => giveFeedback(entry.id, 'up')} className="btn-ghost !p-1.5">
+                <ThumbsUp size={14} />
+              </button>
+              <button aria-label="Not helpful" onClick={() => giveFeedback(entry.id, 'down')} className="btn-ghost !p-1.5">
+                <ThumbsDown size={14} />
+              </button>
+            </>
+          )}
+        </div>
+        {why && <Why a={a} />}
+      </div>
+    </div>
+  )
+}
+
+function SourceChip({ s }: { s: Citation }) {
+  const [open, setOpen] = useState(false)
+  const operator = s.id.startsWith('faq.')
+  return (
+    <div>
+      <button
+        onClick={() => setOpen(!open)}
+        aria-expanded={open}
+        className="flex w-full items-center gap-1.5 text-left text-xs text-ink-muted hover:text-ink"
+      >
+        <BookOpen size={13} className="shrink-0 text-wren" />
+        <span className="truncate">
+          <span className="font-medium text-ink">{s.title}</span> · {operator ? 'answered' : 'updated'}{' '}
+          {formatDay(s.updatedAt).split(', ')[1]} by {s.updatedBy}
+        </span>
+        <ChevronDown size={13} className={cx('ml-auto shrink-0 transition', open && 'rotate-180')} />
+      </button>
+      {open && (
+        <blockquote className="mt-1.5 animate-fade-in border-l-2 border-wren/40 pl-2.5 text-xs leading-relaxed text-ink-muted">
+          {s.excerpt}
+        </blockquote>
+      )}
+    </div>
+  )
+}
+
+function Why({ a }: { a: Answer }) {
+  const t = a.trace
+  return (
+    <div className="mt-1 animate-fade-in rounded-xl border border-dashed border-line-strong bg-surface-2 p-3 text-xs text-ink-muted">
+      <div className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1">
+        <span className="text-ink-subtle">Understood by</span>
+        <span>{t.classifier === 'rules' ? 'Rules (deterministic)' : 'LLM classifier, then rules'}</span>
+        <span className="text-ink-subtle">Facts from</span>
+        <span>{a.sources.length ? a.sources.map((s) => s.title).join(', ') : 'Safety script'}</span>
+        <span className="text-ink-subtle">Written by</span>
+        <span>{t.writer === 'llm' ? 'LLM, verified by grounding guard' : 'Template (exact policy wording)'}</span>
+        <span className="text-ink-subtle">Autonomy</span>
+        <span>{t.autonomy === 'locked' ? 'Locked guardrail' : t.autonomy}</span>
+        {t.guard && (
+          <>
+            <span className="text-ink-subtle">Guard</span>
+            <span className={t.guard.passed ? 'text-willow-text' : 'text-rose-text'}>
+              {t.guard.passed ? `Passed · ${t.guard.checked.length} claims checked` : `Blocked: ${t.guard.unsupported.join(', ')}`}
+            </span>
+          </>
+        )}
+      </div>
+      <ol className="mt-2 list-decimal space-y-0.5 border-t border-line pl-4 pt-2">
+        {t.steps.map((s, i) => (
+          <li key={i}>{s}</li>
+        ))}
+      </ol>
+    </div>
+  )
+}
+
+function Thinking() {
+  return (
+    <div className="flex items-center gap-2 pl-0.5">
+      <Mark size={26} />
+      <div className="flex items-center gap-1 rounded-full bg-surface-2 px-3 py-2" aria-label="Checking the handbook">
+        {[0, 1, 2].map((i) => (
+          <span key={i} className="h-1.5 w-1.5 animate-dot rounded-full bg-ink-subtle" style={{ animationDelay: `${i * 160}ms` }} />
+        ))}
+        <span className="ml-1.5 text-xs text-ink-subtle">Checking the handbook…</span>
+      </div>
+    </div>
+  )
+}
+
+type SpeechCtor = new () => {
+  lang: string
+  interimResults: boolean
+  onresult: (e: { results: ArrayLike<ArrayLike<{ transcript: string }>> }) => void
+  onend: () => void
+  start: () => void
+  stop: () => void
+}
+
+function Composer({ suggestions }: { suggestions?: string[] }) {
+  const [text, setText] = useState('')
+  const [listening, setListening] = useState(false)
+  const thinking = useStore((s) => s.thinking)
+  const w = window as unknown as { SpeechRecognition?: SpeechCtor; webkitSpeechRecognition?: SpeechCtor }
+  const Speech = w.SpeechRecognition ?? w.webkitSpeechRecognition
+
+  const submit = (q: string) => {
+    if (!q.trim()) return
+    ask(q)
+    setText('')
+  }
+
+  const listen = () => {
+    if (!Speech) return
+    const r = new Speech()
+    r.lang = 'en-US'
+    r.interimResults = true
+    r.onresult = (e) =>
+      setText(
+        Array.from(e.results)
+          .map((x) => x[0].transcript)
+          .join(''),
+      )
+    r.onend = () => setListening(false)
+    setListening(true)
+    r.start()
+  }
+
+  return (
+    <div className="border-t border-line bg-surface/90 px-3 pb-3 pt-2 backdrop-blur">
+      {suggestions && suggestions.length > 0 && (
+        <div className="no-scrollbar -mx-3 mb-2 flex gap-1.5 overflow-x-auto px-3">
+          {suggestions.map((s) => (
+            <button
+              key={s}
+              onClick={() => submit(s)}
+              disabled={thinking}
+              className="shrink-0 rounded-full border border-line bg-surface px-3 py-1 text-xs text-ink-muted transition hover:border-willow hover:text-willow-text"
+            >
+              {s}
+            </button>
+          ))}
+        </div>
+      )}
+      <form
+        onSubmit={(e) => {
+          e.preventDefault()
+          submit(text)
+        }}
+        className="flex items-end gap-1.5 rounded-2xl border border-line bg-surface p-1.5 focus-within:border-willow focus-within:ring-2 focus-within:ring-willow/15"
+      >
+        <label htmlFor="ask" className="sr-only">
+          Ask the front desk
+        </label>
+        <input
+          id="ask"
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          placeholder={listening ? 'Listening…' : 'Ask the front desk…'}
+          autoComplete="off"
+          className="min-w-0 flex-1 bg-transparent px-2 py-1.5 text-[15px] placeholder:text-ink-subtle focus:outline-none"
+        />
+        {Speech && (
+          <button
+            type="button"
+            onClick={listen}
+            aria-label="Ask by voice"
+            className={cx(
+              'grid h-8 w-8 place-items-center rounded-full transition',
+              listening ? 'animate-pulse bg-rose-soft text-rose-text' : 'text-ink-muted hover:bg-surface-2',
+            )}
+          >
+            <Mic size={17} />
+          </button>
+        )}
+        <button
+          type="submit"
+          aria-label="Send"
+          disabled={!text.trim() || thinking}
+          className="grid h-8 w-8 place-items-center rounded-full bg-willow text-white transition disabled:opacity-30 dark:text-bg"
+        >
+          <ArrowUp size={17} strokeWidth={2.4} />
+        </button>
+      </form>
+    </div>
+  )
+}

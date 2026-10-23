@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <title>Willow &amp; Wren · AI Front Desk</title>
+    <meta name="description" content="An AI Front Desk prototype: grounded, personalized answers for parents and a control center for preschool operators." />
+    <meta property="og:title" content="Willow & Wren · AI Front Desk" />
+    <meta property="og:description" content="Fast, sourced answers for parents. Control, visibility and a one-click improvement loop for operators." />
+    <meta name="theme-color" content="#FBF8F2" />
+    <script>
+      ;(function () {
+        var pref = 'light'
+        try { pref = localStorage.getItem('ww-theme') || 'light' } catch (e) {}
+        document.documentElement.setAttribute('data-theme', pref)
+      })()
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

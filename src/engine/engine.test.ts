@@ -1,0 +1,58 @@
+import { describe, expect, it } from 'vitest'
+import { demoFamily, seedKnowledge } from '@/data/seed'
+import { answerQuestion } from './answer'
+import { DEFAULT_AUTONOMY, DEMO_NOW } from './defaults'
+import { EVALS } from './evals'
+import { guard } from './guard'
+import { earliestReturn } from './policy'
+
+describe('golden questions', () => {
+  for (const c of EVALS) {
+    it(`${c.id}: ${c.question}`, () => {
+      const a = answerQuestion({
+        question: c.question,
+        knowledge: seedKnowledge,
+        family: demoFamily,
+        now: c.now ?? DEMO_NOW,
+        childId: c.child ?? 'maya',
+        autonomy: DEFAULT_AUTONOMY,
+        bookedTours: [],
+      })
+      const visible = a.text
+      if (c.expect.topic) expect(a.topic).toBe(c.expect.topic)
+      expect([c.expect.status].flat()).toContain(a.status)
+      for (const s of c.expect.includes ?? []) expect(visible.toLowerCase()).toContain(s.toLowerCase())
+      for (const s of c.expect.excludes ?? []) expect(visible.toLowerCase()).not.toContain(s.toLowerCase())
+    })
+  }
+})
+
+describe('policy', () => {
+  it('fever clock restarts from the last fever reducer dose', () => {
+    const r = earliestReturn(seedKnowledge, {
+      lastSymptom: { date: '2026-11-09', minutes: 6 * 60 },
+      lastFeverReducer: { date: '2026-11-09', minutes: 12 * 60 },
+      hours: 24,
+    })
+    // Tue 12:00pm, a normal school day
+    expect(r.earliest).toEqual({ date: '2026-11-10', minutes: 12 * 60 })
+  })
+  it('clear time after hours rolls to next open, skipping closures', () => {
+    const r = earliestReturn(seedKnowledge, { lastSymptom: { date: '2026-11-10', minutes: 19 * 60 }, hours: 24 })
+    expect(r.earliest).toEqual({ date: '2026-11-12', minutes: 7 * 60 })
+    expect(r.skipped.map((c) => c.name)).toEqual(['Veterans Day'])
+  })
+})
+
+describe('grounding guard', () => {
+  const facts = ['Infant tuition is $1,890/month full-time. We are closed Wed, Nov 11 for Veterans Day and reopen at 7:00am.']
+  it('passes a faithful paraphrase', () => {
+    expect(guard('Infants are $1,890 a month. Closed Wednesday Nov 11, back at 7am.', facts).passed).toBe(true)
+  })
+  it('catches an invented number', () => {
+    expect(guard('Infants are $1,790 a month.', facts).unsupported).toContain('1790')
+  })
+  it('catches an invented weekday', () => {
+    expect(guard('We reopen Friday.', facts).unsupported).toContain('friday')
+  })
+})

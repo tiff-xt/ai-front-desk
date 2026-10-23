@@ -1,0 +1,136 @@
+/*
+ * Willow & Wren tokens. Stored as RGB channels so Tailwind can apply opacity.
+ * Each status color has one job: willow = answered, honey = caveat,
+ * dusk = a person has it, rose = urgent safety only.
+ */
+:root,
+[data-theme='light'] {
+  color-scheme: light;
+  --bg: 251 248 242;
+  --surface: 255 255 255;
+  --surface-2: 247 243 235;
+  --surface-3: 240 234 223;
+  --line: 231 225 214;
+  --line-strong: 214 206 192;
+  --ink: 31 42 36;
+  --ink-muted: 82 92 86;
+  --ink-subtle: 112 120 114;
+  --willow: 63 107 78;
+  --willow-strong: 47 90 62;
+  --willow-soft: 230 239 230;
+  --willow-text: 47 90 62;
+  --wren: 138 84 50;
+  --wren-soft: 244 230 216;
+  --wren-text: 122 74 44;
+  --dusk: 59 85 119;
+  --dusk-soft: 227 234 243;
+  --dusk-text: 52 76 108;
+  --honey: 232 176 75;
+  --honey-soft: 251 239 213;
+  --honey-text: 128 83 10;
+  --rose: 166 61 61;
+  --rose-soft: 248 227 225;
+  --rose-text: 150 50 50;
+  --ring: 63 107 78;
+}
+
+[data-theme='dark'] {
+  color-scheme: dark;
+  --bg: 18 23 20;
+  --surface: 26 32 29;
+  --surface-2: 32 39 35;
+  --surface-3: 40 48 43;
+  --line: 48 57 52;
+  --line-strong: 66 77 71;
+  --ink: 236 232 223;
+  --ink-muted: 186 192 187;
+  --ink-subtle: 150 158 153;
+  --willow: 111 166 125;
+  --willow-strong: 143 191 150;
+  --willow-soft: 33 52 40;
+  --willow-text: 150 198 157;
+  --wren: 217 165 124;
+  --wren-soft: 54 40 30;
+  --wren-text: 222 175 138;
+  --dusk: 157 181 214;
+  --dusk-soft: 30 40 54;
+  --dusk-text: 168 192 224;
+  --honey: 232 176 75;
+  --honey-soft: 54 43 20;
+  --honey-text: 236 190 105;
+  --rose: 229 146 146;
+  --rose-soft: 58 30 30;
+  --rose-text: 238 160 160;
+  --ring: 143 191 150;
+}
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+    text-rendering: optimizeLegibility;
+  }
+  body {
+    @apply bg-bg font-sans text-[15px] leading-relaxed text-ink antialiased;
+    font-feature-settings: 'cv11', 'ss01';
+  }
+  :focus-visible {
+    outline: 2px solid rgb(var(--ring));
+    outline-offset: 2px;
+  }
+  ::selection {
+    background: rgb(var(--willow) / 0.2);
+  }
+  .tabular {
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+@layer components {
+  .btn {
+    @apply inline-flex items-center justify-center gap-1.5 rounded-full px-3.5 py-1.5 text-sm font-medium transition duration-150 ease-out disabled:cursor-not-allowed disabled:opacity-50;
+  }
+  .btn-primary {
+    @apply btn bg-willow text-white hover:bg-willow-strong dark:text-bg;
+  }
+  .btn-quiet {
+    @apply btn border border-line bg-surface text-ink hover:border-line-strong hover:bg-surface-2;
+  }
+  .btn-ghost {
+    @apply btn text-ink-muted hover:bg-surface-2 hover:text-ink;
+  }
+  .card {
+    @apply rounded-2xl border border-line bg-surface;
+  }
+  .label {
+    @apply text-2xs font-semibold uppercase tracking-[0.08em] text-ink-subtle;
+  }
+  .input {
+    @apply w-full rounded-xl border border-line bg-surface px-3 py-2 text-sm text-ink placeholder:text-ink-subtle focus:border-willow focus:outline-none focus:ring-2 focus:ring-willow/20;
+  }
+}
+
+@layer utilities {
+  .scrollbar-thin {
+    scrollbar-width: thin;
+    scrollbar-color: rgb(var(--line-strong)) transparent;
+  }
+  .no-scrollbar {
+    scrollbar-width: none;
+  }
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
