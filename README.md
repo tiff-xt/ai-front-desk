@@ -20,7 +20,9 @@ So the design principle is: **the AI never computes a fact.** Policy logic is de
 | "Maya has a fever" → return-to-care checker that skips closures ("Wed is Veterans Day") | **Autonomy**: per-topic *Answer / Draft for me / Always me*; emergencies and other families' data are locked guardrails |
 | "Do kids need costumes for Halloween?" → hands off instead of guessing | **Knowledge**: edit hours, tuition, illness thresholds, menu; health check flags contradictions and stale sections |
 | "Who bit my child?" → privacy-safe handoff | **Inbox**: escalations with an AI-drafted reply you edit and send |
-| Demo clock → 10:15am, ask about lunch again | **Tests**: 26 golden questions re-run live against your edits |
+| Demo clock → 10:15am, ask about lunch again | **Tests**: 27 golden questions re-run live against your edits |
+
+**Any language.** A parent can write in Spanish (or Chinese, Vietnamese, French…). The question is translated to English, answered from the same facts, then translated back, and the guard checks the translation's numbers, dates and weekdays against the English facts (it understands `$1.890`, `100,4`, `jueves`, `星期四`). Spanish speakers also get a fully Spanish interface. Emergency text uses pre-written translations, never machine translation. Operators see the original and the English, reply in English, and the reply reaches the parent translated and fact-checked.
 
 Every answer shows its status (answered / caveat / with a person / urgent), the source with who updated it and when, and a **Why this answer** trace.
 

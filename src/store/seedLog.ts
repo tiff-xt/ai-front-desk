@@ -28,7 +28,16 @@ const prospect = fam('Prospective family', 'Baby', 'sprouts', 'infant', 'he')
 
 const at = (date: string, h: number, m = 0): Clock => ({ date, minutes: h * 60 + m })
 
-export const SEED_LOG: { q: string; at: Clock; who: string; family?: Family; feedback?: 'up' | 'down' }[] = [
+/** `original` + `lang` mark a question asked in another language; `q` is the English the engine saw. */
+export const SEED_LOG: {
+  q: string
+  at: Clock
+  who: string
+  family?: Family
+  feedback?: 'up' | 'down'
+  original?: string
+  lang?: string
+}[] = [
   { q: 'Are you open on Veterans Day?', at: at('2026-11-02', 7, 12), who: 'Marcus Lee', family: lee, feedback: 'up' },
   { q: 'What is the tuition for infants?', at: at('2026-11-02', 12, 40), who: 'Sofia Ramirez (prospective)', family: prospect },
   {
@@ -52,7 +61,14 @@ export const SEED_LOG: { q: string; at: Clock; who: string; family?: Family; fee
   { q: 'Is the Thanksgiving feast potluck? What should we bring?', at: at('2026-11-04', 8, 30), who: 'Marcus Lee', family: lee },
   { q: 'Ava got scratched on the face at school today', at: at('2026-11-04', 17, 20), who: 'Marcus Lee', family: lee },
   { q: 'Can my nanny pick up Nia on Thursday?', at: at('2026-11-04', 11, 10), who: 'Jamal Brooks', family: brooks, feedback: 'up' },
-  { q: 'Do you take CYFD child care assistance?', at: at('2026-11-05', 9, 15), who: 'Aisha Patel (prospective)', family: prospect },
+  {
+    q: 'Do you accept CYFD child care assistance?',
+    original: '¿Aceptan la asistencia de CYFD para el cuidado de niños?',
+    lang: 'es',
+    at: at('2026-11-05', 9, 15),
+    who: 'Aisha Patel (prospective)',
+    family: prospect,
+  },
   { q: 'Do you run a summer camp?', at: at('2026-11-05', 20, 40), who: 'Jamal Brooks', family: brooks },
   {
     q: 'Rosie has a runny nose but no fever, ok to come?',
@@ -90,7 +106,14 @@ export const SEED_LOG: { q: string; at: Clock; who: string; family?: Family; fee
   { q: 'Pink eye — when can Nia come back?', at: at('2026-11-06', 7, 20), who: 'Jamal Brooks', family: brooks, feedback: 'up' },
   { q: 'What should Rosie bring for nap?', at: at('2026-11-06', 19, 5), who: 'Linh Nguyen', family: nguyen },
   { q: 'Are you open on Veterans Day?', at: at('2026-11-07', 8, 40), who: 'Dana Ortiz', family: ortiz },
-  { q: 'Is there school Wednesday?', at: at('2026-11-08', 18, 20), who: 'Linh Nguyen', family: nguyen },
+  {
+    q: 'Is there school Wednesday?',
+    original: '¿Hay clases el miércoles?',
+    lang: 'es',
+    at: at('2026-11-08', 18, 20),
+    who: 'Linh Nguyen',
+    family: nguyen,
+  },
   { q: 'Can I book a tour on Thursday?', at: at('2026-11-08', 20, 30), who: 'Grace Liu (prospective)', family: prospect },
   { q: 'Ava threw up once last night but seems fine now', at: at('2026-11-09', 6, 10), who: 'Marcus Lee', family: lee },
   { q: 'Do you do potty training?', at: at('2026-11-09', 6, 58), who: 'Dana Ortiz', family: ortiz },

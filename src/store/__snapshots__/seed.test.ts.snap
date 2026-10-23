@@ -18,7 +18,7 @@ exports[`seeded week > routes each seeded question the way the demo story expect
   "incidents  handoff  Ava got scratched on the face at school today",
   "lunch      answered What's for lunch tomorrow?",
   "illness    answered Rosie has a runny nose but no fever, ok to come?",
-  "unknown    handoff  Do you take CYFD child care assistance?",
+  "unknown    handoff  Do you accept CYFD child care assistance?",
   "hours      answered Are you closed for Thanksgiving?",
   "tuition    answered How much is toddler tuition?",
   "unknown    handoff  Do you run a summer camp?",

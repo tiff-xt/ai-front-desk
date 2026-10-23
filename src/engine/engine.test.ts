@@ -56,3 +56,29 @@ describe('grounding guard', () => {
     expect(guard('We reopen Friday.', facts).unsupported).toContain('friday')
   })
 })
+
+describe('grounding guard across languages', () => {
+  const facts = [
+    "No, we're closed on Veterans Day (Wed, Nov 11). We reopen Thursday, Nov 12 at 7:00am. Infant tuition is $1,890/month. Fever line 100.4°F.",
+  ]
+  it('passes faithful Spanish', () => {
+    const g = guard(
+      'No, cerramos el Día de los Veteranos (miércoles 11 de noviembre). Abrimos el jueves 12 de noviembre a las 7:00 a. m. La cuota es $1.890 al mes; fiebre desde 100,4 °F.',
+      facts,
+    )
+    expect(g.unsupported).toEqual([])
+  })
+  it('catches a wrong Spanish weekday', () => {
+    expect(guard('Abrimos el viernes 12 de noviembre.', facts).unsupported).toContain('friday')
+  })
+  it('catches a Celsius conversion the facts never stated', () => {
+    expect(guard('La fiebre empieza en 38 °C.', facts).unsupported).toContain('38')
+  })
+  it('passes faithful Chinese and catches a wrong weekday', () => {
+    expect(guard('11月11日（星期三）退伍军人节我们不开门，11月12日星期四早上7:00重新开放。', facts).passed).toBe(true)
+    expect(guard('我们星期五重新开放。', facts).unsupported).toContain('friday')
+  })
+  it('passes faithful Vietnamese', () => {
+    expect(guard('Chúng tôi đóng cửa vào thứ Tư, 11/11 và mở lại vào thứ Năm 12/11 lúc 7:00 sáng.', facts).passed).toBe(true)
+  })
+})

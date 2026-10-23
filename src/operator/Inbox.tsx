@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { CalendarCheck, CheckCheck, Flag, Inbox as InboxIcon, Send, ShieldAlert, Stethoscope, UtensilsCrossed } from 'lucide-react'
-import { cx, Empty } from '@/components/ui'
+import { cx, Empty, LangBadge } from '@/components/ui'
+import { languageName } from '@/lib/lang'
 import { formatDay, formatTime } from '@/lib/time'
 import { resolveInbox, useStore, type InboxItem, type InboxKind } from '@/store/store'
 
@@ -53,6 +54,7 @@ export function Inbox() {
                   </span>
                   <span className="block truncate text-xs text-ink-muted">
                     {i.who} · {i.detail}
+                    <LangBadge lang={i.lang} original={i.original} />
                   </span>
                 </span>
               </button>
@@ -81,7 +83,18 @@ function Detail({ item }: { item: InboxItem }) {
         </span>
       </div>
       <h3 className="mt-2 font-serif text-xl font-semibold">{item.title}</h3>
-      <blockquote className="mt-2 rounded-xl bg-surface-2 px-3.5 py-2.5 text-[15px]">“{item.detail}”</blockquote>
+      {item.original ? (
+        <div className="mt-2 space-y-1.5">
+          <blockquote className="rounded-xl bg-surface-2 px-3.5 py-2.5 text-[15px]">
+            <div className="label mb-0.5">Parent wrote · {languageName(item.lang ?? '')}</div>“{item.original}”
+          </blockquote>
+          <blockquote className="rounded-xl border border-dashed border-line-strong px-3.5 py-2.5 text-sm text-ink-muted">
+            <div className="label mb-0.5">English translation</div>“{item.detail}”
+          </blockquote>
+        </div>
+      ) : (
+        <blockquote className="mt-2 rounded-xl bg-surface-2 px-3.5 py-2.5 text-[15px]">“{item.detail}”</blockquote>
+      )}
 
       {canReply && item.status === 'open' && (
         <div className="mt-4">
@@ -104,6 +117,11 @@ function Detail({ item }: { item: InboxItem }) {
             <button className="btn-ghost" onClick={() => resolveInbox(item.id)}>
               Handled elsewhere
             </button>
+            {item.lang && item.lang !== 'en' && item.live && (
+              <span className="text-xs text-dusk-text">
+                Write in English; it’s translated to {languageName(item.lang)} and fact-checked before sending.
+              </span>
+            )}
             {!item.live && (
               <span className="text-xs text-ink-subtle">Demo note: only questions you ask in the phone get the reply in-thread.</span>
             )}

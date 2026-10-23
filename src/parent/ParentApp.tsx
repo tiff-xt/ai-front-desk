@@ -5,18 +5,10 @@ import { cx, StatusPill } from '@/components/ui'
 import { demoFamily, roomNames } from '@/data/seed'
 import { dayStatus, isOfficeOpen, lunchPlan, nextSchoolDay } from '@/engine/policy'
 import type { Answer, Citation } from '@/engine/types'
-import { addDays, formatDay, formatTime } from '@/lib/time'
-import { ask, dismissNotice, giveFeedback, setChild, useStore, type LogEntry, type Message } from '@/store/store'
+import { ALLERGENS_ES, fmt, ROW_QUESTION_ES, STARTER_ENGLISH, useT } from '@/lib/i18n'
+import { addDays, formatTime } from '@/lib/time'
+import { ask, dismissNotice, giveFeedback, setChild, setLang, useStore, type LogEntry, type Message } from '@/store/store'
 import { AnswerCard } from './cards'
-
-const STARTERS = [
-  'Are you open on Veterans Day?',
-  'I forgot to pack lunch. Can you provide one today?',
-  'Maya has a fever, can she come in?',
-  'What is the tuition for infants?',
-  'How can I schedule a tour?',
-  'Do kids need anything for the Thanksgiving feast?',
-]
 
 export function ParentApp() {
   const messages = useStore((s) => s.messages)
@@ -24,6 +16,7 @@ export function ParentApp() {
   const notices = useStore((s) => s.notices)
   const log = useStore((s) => s.log)
   const scroller = useRef<HTMLDivElement>(null)
+  const { t } = useT()
 
   useEffect(() => {
     scroller.current?.scrollTo({ top: scroller.current.scrollHeight, behavior: 'smooth' })
@@ -45,7 +38,7 @@ export function ParentApp() {
           className="mx-3 mt-2 flex animate-rise-in items-center gap-2 rounded-xl bg-dusk px-3 py-2 text-left text-sm text-white shadow-lift dark:text-bg"
         >
           <Bell size={15} className="shrink-0" />
-          <span className="flex-1">{notices[0].text}</span>
+          <span className="flex-1">{notices[0].kind === 'reply' ? t.noticeReply : t.noticeAnswer}</span>
           <X size={14} className="opacity-70" />
         </button>
       )}
@@ -58,7 +51,7 @@ export function ParentApp() {
           {thinking && <Thinking />}
         </div>
       </div>
-      <Composer suggestions={messages.length === 0 ? STARTERS : followUps} />
+      <Composer suggestions={messages.length === 0 ? t.starters : followUps} />
     </div>
   )
 }
@@ -69,6 +62,7 @@ function Header() {
   const childId = useStore((s) => s.childId)
   const open = isOfficeOpen(k, now)
   const today = dayStatus(k, now.date)
+  const { t, lang } = useT()
   return (
     <header className="border-b border-line bg-surface/80 px-3 pb-2.5 pt-3 backdrop-blur">
       <div className="flex items-center gap-2.5">
@@ -79,13 +73,24 @@ function Header() {
           </div>
           <div className="flex items-center gap-1.5 text-xs text-ink-muted">
             <span className={cx('h-1.5 w-1.5 rounded-full', open ? 'bg-willow' : 'bg-ink-subtle')} />
-            {open
-              ? `Front desk · office open until ${formatTime('close' in today ? today.close : k.center.close)}`
-              : 'Front desk · answers 24/7, office closed'}
+            {open ? t.officeOpen(formatTime('close' in today ? today.close : k.center.close)) : t.officeClosed}
           </div>
         </div>
+        <div role="radiogroup" aria-label="Language / Idioma" className="flex rounded-full border border-line p-0.5 text-2xs font-semibold">
+          {(['en', 'es'] as const).map((l) => (
+            <button
+              key={l}
+              role="radio"
+              aria-checked={lang === l}
+              onClick={() => setLang(l)}
+              className={cx('rounded-full px-2 py-0.5 transition', lang === l ? 'bg-ink text-bg' : 'text-ink-muted hover:text-ink')}
+            >
+              {l.toUpperCase()}
+            </button>
+          ))}
+        </div>
       </div>
-      <div className="mt-2.5 flex gap-1.5" role="radiogroup" aria-label="Which child">
+      <div className="mt-2.5 flex gap-1.5" role="radiogroup" aria-label={t.whichChild}>
         {demoFamily.children.map((c) => (
           <button
             key={c.id}
@@ -120,61 +125,61 @@ function Today() {
   const childId = useStore((s) => s.childId)
   const child = demoFamily.children.find((c) => c.id === childId)!
   const s = dayStatus(k, now.date)
+  const { t, lang } = useT()
   const first = demoFamily.parentName.split(' ')[0]
-  const greeting = now.minutes < 12 * 60 ? 'Good morning' : now.minutes < 17 * 60 ? 'Good afternoon' : 'Good evening'
+  const greeting = t.greeting(now.minutes / 60)
+  const allergen = (a: string) => (lang === 'es' ? (ALLERGENS_ES[a] ?? a) : a)
   const plan = lunchPlan(k, child, now.date, now)
   const upcoming = k.calendar.closures.filter((c) => c.date > now.date && c.date <= addDays(now.date, 10))
   const events = k.calendar.events.filter((e) => e.room === child.room && e.date >= now.date && e.date <= addDays(now.date, 7))
   const next = nextSchoolDay(k, now.date)
 
+  // Each row asks its question in English: the engine's language, and no translator round-trip.
   const rows: { label: string; value: string; q: string; tone?: 'rose' | 'honey' }[] = []
   rows.push(
     s.state === 'open'
-      ? { label: 'Today', value: `Open until ${formatTime(s.close)}`, q: 'What are your hours today?' }
+      ? { label: t.today, value: t.openUntil(formatTime(s.close)), q: 'What are your hours today?' }
       : s.state === 'early'
-        ? { label: 'Today', value: `Early close at ${formatTime(s.close)} · ${s.name}`, q: 'What time do you close today?', tone: 'honey' }
+        ? { label: t.today, value: t.earlyClose(formatTime(s.close), s.name), q: 'What time do you close today?', tone: 'honey' }
         : {
-            label: 'Today',
-            value: `Closed${'name' in s ? ` · ${s.name}` : ''}${next ? `. Back ${formatDay(next)}` : ''}`,
+            label: t.today,
+            value: t.closedToday('name' in s ? s.name : '', next ? fmt.day(next, lang) : ''),
             q: 'Are you open today?',
             tone: 'rose',
           },
   )
   if (plan.menu && (s.state === 'open' || s.state === 'early'))
     rows.push({
-      label: 'Lunch',
+      label: t.lunch,
       value:
         child.band === 'infant'
-          ? `${child.name} eats from home`
+          ? t.eatsFromHome(child.name)
           : plan.servesAlternate
-            ? `${plan.menu.alternate} (${plan.conflicts.join('/')}-free for ${child.name})`
+            ? t.allergyFree(plan.menu.alternate, plan.conflicts.map(allergen).join('/'), child.name)
             : plan.menu.lunch,
       q: "What's for lunch today?",
     })
   for (const c of upcoming.slice(0, 2))
     rows.push({
-      label: formatDay(c.date).split(',')[0] + ' ' + formatDay(c.date).split(' ')[2],
-      value: c.kind === 'closed' ? `Closed · ${c.name}` : `Closes ${formatTime(c.closeAt!)} · ${c.name}`,
-      q: `Are you open on ${formatDay(c.date)}?`,
+      label: fmt.short(c.date, lang),
+      value: c.kind === 'closed' ? t.closedNamed(c.name) : t.closesAt(formatTime(c.closeAt!), c.name),
+      q: `Are you open on ${fmt.day(c.date, 'en')}?`,
       tone: c.kind === 'closed' ? 'rose' : 'honey',
     })
   for (const e of events.slice(0, 1))
-    rows.push({ label: formatDay(e.date).split(',')[0], value: `${e.title}: ${e.note}`, q: `What's happening ${formatDay(e.date)}?` })
+    rows.push({ label: fmt.short(e.date, lang), value: `${e.title}: ${e.note}`, q: `Are you open ${fmt.day(e.date, 'en')}?` })
 
   return (
     <div className="animate-fade-in pb-3 pt-2">
       <h1 className="font-serif text-[26px] font-semibold leading-tight tracking-tight">
         {greeting}, {first}.
       </h1>
-      <p className="mt-1 text-sm text-ink-muted">
-        Ask anything about {child.name}’s day, our policies or your account. Answers come from Willow &amp; Wren’s own handbook, and a
-        person steps in when it matters.
-      </p>
+      <p className="mt-1 text-sm text-ink-muted">{t.intro(child.name)}</p>
       <div className="card mt-4 divide-y divide-line overflow-hidden">
         {rows.map((r, i) => (
           <button
             key={i}
-            onClick={() => ask(r.q)}
+            onClick={() => ask(lang === 'en' ? r.q : (ROW_QUESTION_ES[r.q] ?? `¿${r.label}: ${r.value}?`), r.q)}
             className="flex w-full items-start gap-3 px-3.5 py-2.5 text-left transition hover:bg-surface-2"
           >
             <span className="w-[4.5rem] shrink-0 pt-px text-2xs font-semibold uppercase tracking-wider text-ink-subtle">{r.label}</span>
@@ -189,6 +194,8 @@ function Today() {
 }
 
 function Bubble({ m, entry }: { m: Message; entry?: LogEntry }) {
+  const { t } = useT()
+  const [orig, setOrig] = useState(false)
   if (m.role === 'parent')
     return (
       <div className="flex animate-rise-in justify-end">
@@ -208,10 +215,19 @@ function Bubble({ m, entry }: { m: Message; entry?: LogEntry }) {
           ER
         </div>
         <div className="max-w-[85%]">
-          <div className="mb-0.5 text-2xs font-semibold text-dusk-text">Ms. Rivera · Director</div>
+          <div className="mb-0.5 text-2xs font-semibold text-dusk-text">Ms. Rivera · {t.director}</div>
           <div className="whitespace-pre-line rounded-2xl rounded-tl-md border border-dusk/20 bg-dusk-soft px-3.5 py-2 text-[15px]">
             {m.text}
           </div>
+          {m.original && (
+            <div className="mt-1 pl-1 text-2xs text-ink-subtle">
+              {t.translatedFrom} ·{' '}
+              <button className="underline-offset-2 hover:underline" onClick={() => setOrig(!orig)}>
+                {orig ? t.hideOriginal : t.showOriginal}
+              </button>
+              {orig && <p className="mt-1 whitespace-pre-line text-xs text-ink-muted">{m.original}</p>}
+            </div>
+          )}
         </div>
       </div>
     )
@@ -224,6 +240,7 @@ function DeskAnswer({ entry }: { entry: LogEntry }) {
   const now = useStore((s) => s.now)
   const a = entry.answer
   const [why, setWhy] = useState(false)
+  const { t } = useT()
   return (
     <div className="flex animate-rise-in gap-2">
       <div className="mt-0.5 shrink-0">
@@ -232,8 +249,8 @@ function DeskAnswer({ entry }: { entry: LogEntry }) {
       <div className="min-w-0 max-w-[92%] flex-1">
         <div className={cx('card overflow-hidden shadow-card', a.status === 'urgent' && 'border-rose/40')}>
           <div className="px-3.5 pb-2.5 pt-3">
-            <StatusPill status={a.status} />
-            <p className="mt-1.5 text-[15px] leading-relaxed">{a.text}</p>
+            <StatusPill status={a.status} label={t.status[a.status]} />
+            <p className="mt-1.5 whitespace-pre-line text-[15px] leading-relaxed">{a.text}</p>
           </div>
           {a.card && (
             <div className="border-t border-line bg-surface-2/60 px-3.5 py-3">
@@ -250,20 +267,18 @@ function DeskAnswer({ entry }: { entry: LogEntry }) {
         </div>
         <div className="mt-1 flex items-center gap-0.5 pl-1">
           <button onClick={() => setWhy(!why)} className="btn-ghost !gap-1 !px-2 !py-1 text-xs" aria-expanded={why}>
-            <Sparkles size={13} /> Why this answer
+            <Sparkles size={13} /> {t.why}
             <ChevronDown size={13} className={cx('transition', why && 'rotate-180')} />
           </button>
           <span className="flex-1" />
           {entry.feedback ? (
-            <span className="px-2 text-xs text-ink-subtle">
-              {entry.feedback === 'up' ? 'Thanks!' : 'Thanks. Staff will review this one.'}
-            </span>
+            <span className="px-2 text-xs text-ink-subtle">{entry.feedback === 'up' ? t.thanks : t.thanksDown}</span>
           ) : (
             <>
-              <button aria-label="Helpful" onClick={() => giveFeedback(entry.id, 'up')} className="btn-ghost !p-1.5">
+              <button aria-label={t.helpful} onClick={() => giveFeedback(entry.id, 'up')} className="btn-ghost !p-1.5">
                 <ThumbsUp size={14} />
               </button>
-              <button aria-label="Not helpful" onClick={() => giveFeedback(entry.id, 'down')} className="btn-ghost !p-1.5">
+              <button aria-label={t.notHelpful} onClick={() => giveFeedback(entry.id, 'down')} className="btn-ghost !p-1.5">
                 <ThumbsDown size={14} />
               </button>
             </>
@@ -278,6 +293,7 @@ function DeskAnswer({ entry }: { entry: LogEntry }) {
 function SourceChip({ s }: { s: Citation }) {
   const [open, setOpen] = useState(false)
   const operator = s.id.startsWith('faq.')
+  const { t, lang } = useT()
   return (
     <div>
       <button
@@ -287,8 +303,8 @@ function SourceChip({ s }: { s: Citation }) {
       >
         <BookOpen size={13} className="shrink-0 text-wren" />
         <span className="truncate">
-          <span className="font-medium text-ink">{s.title}</span> · {operator ? 'answered' : 'updated'}{' '}
-          {formatDay(s.updatedAt).split(', ')[1]} by {s.updatedBy}
+          <span className="font-medium text-ink">{s.title}</span> · {operator ? t.answered : t.updated}{' '}
+          {fmt.day(s.updatedAt, lang).split(', ')[1]} {t.by} {s.updatedBy}
         </span>
         <ChevronDown size={13} className={cx('ml-auto shrink-0 transition', open && 'rotate-180')} />
       </button>
@@ -333,14 +349,15 @@ function Why({ a }: { a: Answer }) {
 }
 
 function Thinking() {
+  const { t } = useT()
   return (
     <div className="flex items-center gap-2 pl-0.5">
       <Mark size={26} />
-      <div className="flex items-center gap-1 rounded-full bg-surface-2 px-3 py-2" aria-label="Checking the handbook">
+      <div className="flex items-center gap-1 rounded-full bg-surface-2 px-3 py-2" aria-label={t.checking}>
         {[0, 1, 2].map((i) => (
           <span key={i} className="h-1.5 w-1.5 animate-dot rounded-full bg-ink-subtle" style={{ animationDelay: `${i * 160}ms` }} />
         ))}
-        <span className="ml-1.5 text-xs text-ink-subtle">Checking the handbook…</span>
+        <span className="ml-1.5 text-xs text-ink-subtle">{t.checking}</span>
       </div>
     </div>
   )
@@ -359,19 +376,20 @@ function Composer({ suggestions }: { suggestions?: string[] }) {
   const [text, setText] = useState('')
   const [listening, setListening] = useState(false)
   const thinking = useStore((s) => s.thinking)
+  const { t, lang } = useT()
   const w = window as unknown as { SpeechRecognition?: SpeechCtor; webkitSpeechRecognition?: SpeechCtor }
   const Speech = w.SpeechRecognition ?? w.webkitSpeechRecognition
 
   const submit = (q: string) => {
     if (!q.trim()) return
-    ask(q)
+    ask(q, STARTER_ENGLISH[q])
     setText('')
   }
 
   const listen = () => {
     if (!Speech) return
     const r = new Speech()
-    r.lang = 'en-US'
+    r.lang = lang === 'es' ? 'es-US' : 'en-US'
     r.interimResults = true
     r.onresult = (e) =>
       setText(
@@ -408,13 +426,13 @@ function Composer({ suggestions }: { suggestions?: string[] }) {
         className="flex items-end gap-1.5 rounded-2xl border border-line bg-surface p-1.5 focus-within:border-willow focus-within:ring-2 focus-within:ring-willow/15"
       >
         <label htmlFor="ask" className="sr-only">
-          Ask the front desk
+          {t.ask}
         </label>
         <input
           id="ask"
           value={text}
           onChange={(e) => setText(e.target.value)}
-          placeholder={listening ? 'Listening…' : 'Ask the front desk…'}
+          placeholder={listening ? t.listening : t.ask}
           autoComplete="off"
           className="min-w-0 flex-1 bg-transparent px-2 py-1.5 text-[15px] placeholder:text-ink-subtle focus:outline-none"
         />
@@ -422,7 +440,7 @@ function Composer({ suggestions }: { suggestions?: string[] }) {
           <button
             type="button"
             onClick={listen}
-            aria-label="Ask by voice"
+            aria-label={t.askVoice}
             className={cx(
               'grid h-8 w-8 place-items-center rounded-full transition',
               listening ? 'animate-pulse bg-rose-soft text-rose-text' : 'text-ink-muted hover:bg-surface-2',
@@ -433,7 +451,7 @@ function Composer({ suggestions }: { suggestions?: string[] }) {
         )}
         <button
           type="submit"
-          aria-label="Send"
+          aria-label={t.send}
           disabled={!text.trim() || thinking}
           className="grid h-8 w-8 place-items-center rounded-full bg-willow text-white transition disabled:opacity-30 dark:text-bg"
         >

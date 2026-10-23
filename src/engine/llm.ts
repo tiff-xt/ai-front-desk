@@ -59,11 +59,35 @@ export interface PhraseResult {
   used: boolean
 }
 
-export async function phrase(question: string, answer: Answer): Promise<PhraseResult | null> {
-  if (answer.status === 'urgent' || answer.status === 'handoff' || answer.status === 'review') return null
-  const r = await post<{ text?: string }>('/phrase', { question, draft: answer.text, sources: answer.sources.map((s) => s.excerpt) })
+/** Language + faithful English translation of a non-English question. */
+export async function understandLanguage(question: string): Promise<{ lang: string; english: string } | null> {
+  const r = await post<{ lang?: string; english?: string }>('/understand', { question })
+  if (!r?.lang || !r.english) return null
+  return { lang: r.lang.slice(0, 2), english: r.english }
+}
+
+/**
+ * Rewrite (English) or rewrite-and-translate a grounded answer. Handoffs and
+ * drafts held for review are only ever translated faithfully, never rewritten.
+ * Urgent answers never come here; they use pre-written translations.
+ */
+export async function phrase(question: string, answer: Answer, lang = 'en'): Promise<PhraseResult | null> {
+  if (answer.status === 'urgent') return null
+  const faithful = answer.status === 'handoff' || answer.status === 'review'
+  if (faithful && lang === 'en') return null
+  const r = await post<{ text?: string }>('/phrase', { question, draft: answer.text, lang, mode: faithful ? 'translate' : 'rewrite' })
   const text = r?.text?.trim()
   if (!text) return null
   const g = guard(text, answer.trace.facts)
   return { text, guard: g, used: g.passed }
+}
+
+/** Translate a staff-written message for a parent. Guarded against the English original. */
+export async function translateFor(lang: string, text: string): Promise<PhraseResult | null> {
+  if (lang === 'en') return null
+  const r = await post<{ text?: string }>('/phrase', { question: '', draft: text, lang, mode: 'translate' })
+  const out = r?.text?.trim()
+  if (!out) return null
+  const g = guard(out, [text])
+  return { text: out, guard: g, used: g.passed }
 }

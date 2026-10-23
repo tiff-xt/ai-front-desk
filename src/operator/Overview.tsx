@@ -1,6 +1,6 @@
 import { useMemo } from 'react'
 import { ArrowRight, ThumbsDown } from 'lucide-react'
-import { cx, StatusPill } from '@/components/ui'
+import { cx, LangBadge, StatusPill } from '@/components/ui'
 import { TOPIC_LABELS } from '@/engine/defaults'
 import { formatDay, formatTime } from '@/lib/time'
 import { gapItems, resolvedByDesk } from '@/store/selectors'
@@ -97,7 +97,10 @@ export function Overview({ go }: { go: (t: Tab) => void }) {
                 ) : (
                   <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-honey" />
                 )}
-                <span className="flex-1">{l.question}</span>
+                <span className="flex-1">
+                  {l.question}
+                  <LangBadge lang={l.lang} original={l.original} />
+                </span>
                 <span className="shrink-0 text-2xs text-ink-subtle">{l.feedback === 'down' ? 'Thumbs down' : 'No answer'}</span>
               </li>
             ))}
@@ -119,6 +122,7 @@ export function Overview({ go }: { go: (t: Tab) => void }) {
                 </span>
                 <span className="min-w-0 flex-1 truncate">
                   {l.question}
+                  <LangBadge lang={l.lang} original={l.original} />
                   <span className="ml-2 text-xs text-ink-subtle">{l.who}</span>
                   {l.live && (
                     <span className="ml-2 rounded-full bg-willow-soft px-1.5 text-2xs font-semibold text-willow-text">you, just now</span>

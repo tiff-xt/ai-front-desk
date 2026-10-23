@@ -40,7 +40,7 @@ const SCREENS: { topic: AnyTopic; patterns: (string | RegExp)[] }[] = [
   {
     topic: 'incidents',
     patterns: [
-      /\b(bit (him|her|my|me)|was bit|got bit|bitten|biting|bites|got hurt|was hurt|hurt (him|her)self|injur|bruise|bump on|bleed|scratched|fell|fall (down|off)|hit by|pushed|stitches|concussion|came home with)/,
+      /\b(bit (him|her|my|me)|was bit|got bit|bitten|biting|bites|got hurt|was hurt|hurt (him|her)self|injur|bruise|bump on|bleed|scratched|fell|fall (down|off)|hit by|hit (his|her|their|my) head|bumped (his|her|their) head|head injury|pushed|stitches|concussion|came home with)/,
       /\b(abuse|neglect|mistreat|rough|yelled at|grabbed)\b/,
       /\b(complain|complaint|unhappy with|upset with)\b/,
     ],

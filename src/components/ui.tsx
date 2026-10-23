@@ -13,12 +13,12 @@ export const STATUS: Record<Status, { label: string; cls: string; Icon: typeof C
   urgent: { label: 'Urgent', cls: 'bg-rose-soft text-rose-text', Icon: AlertTriangle },
 }
 
-export function StatusPill({ status, short = false }: { status: Status; short?: boolean }) {
+export function StatusPill({ status, short = false, label }: { status: Status; short?: boolean; label?: string }) {
   const s = STATUS[status]
   return (
     <span className={cx('inline-flex items-center gap-1 whitespace-nowrap rounded-full px-2 py-0.5 text-2xs font-semibold', s.cls)}>
       <s.Icon size={12} strokeWidth={2.4} aria-hidden />
-      {short ? s.label.split(',')[0] : s.label}
+      {label ?? (short ? s.label.split(',')[0] : s.label)}
     </span>
   )
 }
@@ -65,5 +65,18 @@ export function Empty({ icon, title, body }: { icon: ReactNode; title: string; b
       <div className="font-medium">{title}</div>
       <p className="max-w-xs text-sm text-ink-muted">{body}</p>
     </div>
+  )
+}
+
+/** Marks a question asked in another language; hover shows the parent's own words. */
+export function LangBadge({ lang, original }: { lang?: string; original?: string }) {
+  if (!lang || lang === 'en') return null
+  return (
+    <span
+      title={original ? `Parent wrote: “${original}”` : undefined}
+      className="ml-1.5 inline-flex rounded bg-dusk-soft px-1 align-middle text-2xs font-semibold uppercase text-dusk-text"
+    >
+      {lang}
+    </span>
   )
 }

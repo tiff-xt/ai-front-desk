@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { BellRing, Check, Lightbulb, Plus, ThumbsDown, Wand2, X } from 'lucide-react'
-import { cx, Empty } from '@/components/ui'
+import { cx, Empty, LangBadge } from '@/components/ui'
 import { clusterQuestions, type Cluster } from '@/engine/gaps'
 import { formatDay, formatTime } from '@/lib/time'
 import { gapItems } from '@/store/selectors'
@@ -159,7 +159,10 @@ function ClusterCard({
             ) : (
               <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-honey" />
             )}
-            <span className="flex-1">“{l.question}”</span>
+            <span className="flex-1">
+              “{l.question}”
+              <LangBadge lang={l.lang} original={l.original} />
+            </span>
             <span className="shrink-0 text-2xs text-ink-subtle">
               {formatDay(l.at.date).split(', ')[0]} {formatTime(l.at.minutes)}
             </span>

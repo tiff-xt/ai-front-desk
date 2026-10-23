@@ -3,11 +3,12 @@ import { demoFamily, seedKnowledge } from '@/data/seed'
 import type { HandbookSection, Knowledge } from '@/data/types'
 import { answerQuestion, needsStaff } from '@/engine/answer'
 import { DEFAULT_AUTONOMY, DEMO_NOW, TOPIC_LABELS } from '@/engine/defaults'
-import { classify, llmEnabled, phrase } from '@/engine/llm'
+import { classify, llmEnabled, phrase, translateFor, understandLanguage } from '@/engine/llm'
 import type { Answer, Autonomy, Topic } from '@/engine/types'
 import { understand } from '@/engine/understand'
 import { formatDay, formatTime, type Clock } from '@/lib/time'
 import { SEED_LOG } from './seedLog'
+import { detectLang, UNVERIFIED_NOTE, URGENT, type UiLang } from '@/lib/lang'
 
 /**
  * One small store for both perspectives. The parent phone and the operator
@@ -26,6 +27,9 @@ export interface LogEntry {
   /** Set when an operator answer later covered this question. */
   fixedBy?: string
   live?: boolean
+  /** The parent's own words when they wrote in another language; `question` holds the English the engine used. */
+  original?: string
+  lang?: string
 }
 
 export type InboxKind = 'handoff' | 'review' | 'flag' | 'lunch' | 'tour' | 'absence'
@@ -41,6 +45,8 @@ export interface InboxItem {
   logId?: string
   status: 'open' | 'done'
   live?: boolean
+  original?: string
+  lang?: string
 }
 
 export interface Message {
@@ -49,12 +55,16 @@ export interface Message {
   text: string
   at: Clock
   logId?: string
+  /** For translated staff messages: the English the operator actually wrote. */
+  original?: string
+  /** True when a translation failed the guard and we showed the verified English instead. */
+  unverified?: boolean
 }
 
 export interface Notice {
   id: string
   at: Clock
-  text: string
+  kind: 'reply' | 'answer'
 }
 
 export interface State {
@@ -68,11 +78,13 @@ export interface State {
   notices: Notice[]
   bookedTours: string[]
   thinking: boolean
+  /** Language of the parent app's interface. Answers follow the language of each question regardless. */
+  lang: UiLang
   /** Ids of log entries an operator just fixed, for the "Fixed ✓" moment. */
   justFixed: string[]
 }
 
-const KEY = 'ww-state-v3'
+const KEY = 'ww-state-v4'
 const uid = () => Math.random().toString(36).slice(2, 10)
 
 function initial(): State {
@@ -97,6 +109,8 @@ function initial(): State {
         id: `seed-${i}`,
         at: s.at,
         question: s.q,
+        original: s.original,
+        lang: s.lang ?? 'en',
         childId: s.family?.children[0].id ?? 'maya',
         who: s.who,
         answer,
@@ -114,6 +128,7 @@ function initial(): State {
     inbox,
     notices: [],
     thinking: false,
+    lang: 'en',
     justFixed: [],
   }
 }
@@ -132,6 +147,8 @@ function toInbox(l: LogEntry): InboxItem {
     logId: l.id,
     status: 'open',
     live: l.live,
+    original: l.original,
+    lang: l.lang,
   }
 }
 
@@ -184,14 +201,39 @@ export function useStore<T>(selector: (s: State) => T): T {
 
 const PARENT = demoFamily.parentName
 
-export async function ask(question: string) {
+/** `englishHint` is for tapped suggestions shown in Spanish: we already know what they mean. */
+export async function ask(question: string, englishHint?: string) {
   const q = question.trim()
   if (!q || state.thinking) return
   const at = state.now
   setState((s) => ({ messages: [...s.messages, { id: uid(), role: 'parent', text: q, at }], thinking: true }))
+  const started = performance.now()
+  const steps: string[] = []
+
+  // 1. Language. English skips the round-trip; anything else is translated to English for the engine.
+  let lang = 'en'
+  let english = q
+  const guess = englishHint ? 'en' : detectLang(q)
+  if (englishHint) {
+    // A tapped suggestion: we know its meaning; its language is whatever it was written in.
+    lang = q === englishHint ? 'en' : detectLang(q) === 'es' ? 'es' : state.lang
+    english = englishHint
+  } else if (guess !== 'en') {
+    const u = llmEnabled() ? await understandLanguage(q) : null
+    if (u) {
+      lang = u.lang
+      english = u.english
+      if (lang !== 'en') steps.push(`Detected ${lang.toUpperCase()}; engine reasoned over the English translation: “${english}”`)
+    } else if (guess === 'es') {
+      lang = 'es'
+      steps.push('Detected Spanish; no translator configured, so the engine saw the original text')
+    }
+  }
+  // A Spanish-speaking parent gets a Spanish interface, once, without asking.
+  if (lang === 'es' && state.lang !== 'es') setState(() => ({ lang: 'es' }))
 
   const input = {
-    question: q,
+    question: english,
     knowledge: state.knowledge,
     family: demoFamily,
     now: at,
@@ -199,50 +241,76 @@ export async function ask(question: string) {
     autonomy: state.autonomy,
     bookedTours: state.bookedTours,
   }
-  const started = performance.now()
   let answer = answerQuestion(input)
+  let unverified = false
 
   if (llmEnabled()) {
-    // Rules first; the LLM only gets a say when the rules found nothing.
+    // 2. Rules first; the LLM only classifies when the rules found nothing.
     if (answer.topic === 'unknown') {
-      const topic = await classify(q)
+      const topic = await classify(english)
       if (topic && topic !== 'unknown') {
-        const u = { ...understand(q, state.knowledge, at.date), topic, matched: `LLM classifier → ${topic}` }
+        const u = { ...understand(english, state.knowledge, at.date), topic, matched: `LLM classifier → ${topic}` }
         const retry = answerQuestion(input, u)
         if (retry.topic !== 'unknown') answer = { ...retry, trace: { ...retry.trace, classifier: 'llm' } }
       }
     }
-    const p = await phrase(q, answer)
+  }
+
+  // 3. Wording. Urgent text is pre-written per language; everything else may be rephrased/translated behind the guard.
+  if (answer.status === 'urgent') {
+    const urgent = URGENT[lang]
+    if (urgent && lang !== 'en') {
+      answer = { ...answer, text: urgent(state.knowledge.center.phone) }
+      steps.push(`Emergency text: pre-written ${lang.toUpperCase()} translation (never machine-translated)`)
+    }
+  } else if (llmEnabled()) {
+    const p = await phrase(english, answer, lang)
     if (p) {
+      steps.push(
+        p.used
+          ? `LLM ${lang === 'en' ? 'rephrase' : `translation (${lang.toUpperCase()})`} passed the grounding guard`
+          : `LLM output rejected: unsupported ${p.guard.unsupported.join(', ')} → verified template used`,
+      )
+      if (!p.used && lang !== 'en') unverified = true
       answer = {
         ...answer,
         text: p.used ? p.text : answer.text,
-        trace: {
-          ...answer.trace,
-          guard: p.guard,
-          writer: p.used ? 'llm' : 'template',
-          steps: [
-            ...answer.trace.steps,
-            p.used
-              ? 'LLM rephrase passed the grounding guard'
-              : `LLM rephrase rejected: unsupported ${p.guard.unsupported.join(', ')} → template used`,
-          ],
-        },
+        trace: { ...answer.trace, guard: p.guard, writer: p.used ? 'llm' : 'template' },
       }
     }
   }
+  answer = { ...answer, trace: { ...answer.trace, steps: [...answer.trace.steps, ...steps] } }
+  if (unverified && UNVERIFIED_NOTE[lang]) answer = { ...answer, text: `${UNVERIFIED_NOTE[lang]}\n\n${answer.text}` }
 
   // A short, honest pause reads as "checking", not lag; never longer than needed.
   const elapsed = performance.now() - started
   if (elapsed < 650) await new Promise((r) => setTimeout(r, 650 - elapsed))
 
-  const entry: LogEntry = { id: uid(), at, question: q, childId: answer.childId ?? state.childId, who: PARENT, answer, live: true }
+  const entry: LogEntry = {
+    id: uid(),
+    at,
+    question: english,
+    original: english !== q ? q : undefined,
+    lang,
+    childId: answer.childId ?? state.childId,
+    who: PARENT,
+    answer,
+    live: true,
+  }
   setState((s) => ({
     thinking: false,
     log: [...s.log, entry],
-    messages: [...s.messages, { id: uid(), role: 'desk', text: answer.text, at, logId: entry.id }],
+    messages: [...s.messages, { id: uid(), role: 'desk', text: answer.text, at, logId: entry.id, unverified }],
     inbox: needsStaff(answer) ? [toInbox(entry), ...s.inbox] : s.inbox,
   }))
+}
+
+/** Translate a staff message into the parent's language, guarded; falls back to the English original. */
+async function toParent(text: string, lang: string): Promise<Pick<Message, 'text' | 'original' | 'unverified'>> {
+  if (lang === 'en' || !llmEnabled()) return { text }
+  const t = await translateFor(lang, text)
+  if (t?.used) return { text: t.text, original: text }
+  return { text: UNVERIFIED_NOTE[lang] ? `${UNVERIFIED_NOTE[lang]}\n\n${text}` : text, unverified: true }
 }
 
 export function giveFeedback(logId: string, feedback: 'up' | 'down') {
@@ -257,31 +325,23 @@ export function createRequest(kind: InboxKind, title: string, detail: string, pa
   }))
 }
 
-export function bookTour(slot: Clock) {
+export function bookTour(slot: Clock, parentNote: string) {
   setState((s) => ({ bookedTours: [...s.bookedTours, `${slot.date}@${slot.minutes}`] }))
-  createRequest(
-    'tour',
-    'Tour booked',
-    `${formatDay(slot.date)} at ${formatTime(slot.minutes)}`,
-    `Tour booked for ${formatDay(slot.date)} at ${formatTime(slot.minutes)}. ${state.knowledge.center.directorShort} will meet you at the front door.`,
-  )
+  createRequest('tour', 'Tour booked', `${formatDay(slot.date)} at ${formatTime(slot.minutes)}`, parentNote)
 }
 
-/** Staff sends a reply (or approves a draft). If the asker is the demo parent, it lands in their thread. */
-export function resolveInbox(id: string, reply?: string) {
+/** Staff sends a reply (or approves a draft). If the asker is the demo parent, it lands in their thread, in their language. */
+export async function resolveInbox(id: string, reply?: string) {
   const item = state.inbox.find((i) => i.id === id)
   if (!item) return
   const at = state.now
-  setState((s) => {
-    const toParent = reply && item.live
-    return {
-      inbox: s.inbox.map((i) => (i.id === id ? { ...i, status: 'done' } : i)),
-      messages: toParent ? [...s.messages, { id: uid(), role: 'staff', text: reply!, at }] : s.messages,
-      notices: toParent
-        ? [{ id: uid(), at, text: `${s.knowledge.center.directorShort} replied to your question` }, ...s.notices]
-        : s.notices,
-    }
-  })
+  setState((s) => ({ inbox: s.inbox.map((i) => (i.id === id ? { ...i, status: 'done' } : i)) }))
+  if (!reply || !item.live) return
+  const msg = await toParent(reply, item.lang ?? 'en')
+  setState((s) => ({
+    messages: [...s.messages, { id: uid(), role: 'staff', at, ...msg }],
+    notices: [{ id: uid(), at, kind: 'reply' }, ...s.notices],
+  }))
 }
 
 export function dismissNotice(id: string) {
@@ -298,6 +358,10 @@ export function setAutonomy(topic: Topic, level: Autonomy) {
 
 export function setNow(now: Clock) {
   setState(() => ({ now }))
+}
+
+export function setLang(lang: UiLang) {
+  setState(() => ({ lang }))
 }
 
 export function setChild(childId: string) {
@@ -339,17 +403,20 @@ export function publishAnswer(section: Omit<HandbookSection, 'id' | 'updatedAt' 
   })
   const liveFixed = log.filter((l) => fixed.includes(l.id) && l.live)
   const at = state.now
+  if (liveFixed.length) {
+    const first = liveFixed[0]
+    void toParent(`Update on “${first.original ?? first.question}”: ${section.body}`, first.lang ?? 'en').then((msg) =>
+      setState((s) => ({
+        messages: [...s.messages, { id: uid(), role: 'staff', at, ...msg }],
+        notices: [{ id: uid(), at, kind: 'answer' }, ...s.notices],
+      })),
+    )
+  }
   setState((s) => ({
     knowledge,
     log,
     justFixed: fixed,
     inbox: s.inbox.map((i) => (i.logId && fixed.includes(i.logId) ? { ...i, status: 'done' } : i)),
-    messages: liveFixed.length
-      ? [...s.messages, { id: uid(), role: 'staff', text: `Update on “${liveFixed[0].question}”: ${section.body}`, at }]
-      : s.messages,
-    notices: liveFixed.length
-      ? [{ id: uid(), at, text: `${s.knowledge.center.directorShort} answered a question you asked earlier` }, ...s.notices]
-      : s.notices,
   }))
   return { id, fixed }
 }
