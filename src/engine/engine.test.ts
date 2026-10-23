@@ -106,9 +106,24 @@ describe('guard catches omissions', () => {
 describe('staff-typed text is safe', () => {
   it('a keyword with regex characters cannot crash answering', () => {
     const k = structuredClone(seedKnowledge)
-    k.handbook.push({ id: 'faq.x', title: 'C++ club (after care)', body: 'Coding club runs Thursdays.', keywords: ['c++', '(after care)', 'what?'], updatedAt: '2026-11-09', updatedBy: 'Ms. Rivera' })
+    k.handbook.push({
+      id: 'faq.x',
+      title: 'C++ club (after care)',
+      body: 'Coding club runs Thursdays.',
+      keywords: ['c++', '(after care)', 'what?'],
+      updatedAt: '2026-11-09',
+      updatedBy: 'Ms. Rivera',
+    })
     const ask = (question: string) =>
-      answerQuestion({ question, knowledge: k, family: demoFamily, now: DEMO_NOW, childId: 'maya', autonomy: DEFAULT_AUTONOMY, bookedTours: [] })
+      answerQuestion({
+        question,
+        knowledge: k,
+        family: demoFamily,
+        now: DEMO_NOW,
+        childId: 'maya',
+        autonomy: DEFAULT_AUTONOMY,
+        bookedTours: [],
+      })
     expect(() => ask('Is there a c++ club?')).not.toThrow()
     expect(ask('Do you have (after care) on Thursdays?').sources[0]?.id).toBe('faq.x')
   })
