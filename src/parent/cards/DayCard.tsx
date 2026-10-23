@@ -2,7 +2,7 @@ import { CalendarPlus } from 'lucide-react'
 import type { Knowledge } from '@/data/types'
 import type { Card } from '@/engine/types'
 import { downloadIcs } from '@/lib/ics'
-import { formatTime, relativeDay, type Clock } from '@/lib/time'
+import { formatDay, formatTime, relativeDay, type Clock } from '@/lib/time'
 import { fmt, useT } from '@/lib/i18n'
 import { DateTile } from './DateTile'
 
@@ -23,13 +23,15 @@ export function DayCard({ card, k, now }: { card: Extract<Card, { kind: 'day' }>
       sub: t.publishedThrough(fmt.day(k.calendar.publishedThrough, lang)),
     },
   }[card.state]
+  const relative = relativeDay(card.date, now.date)
   return (
     <div className="flex items-center gap-3">
       <DateTile date={card.date} tone={head.tone} />
       <div className="min-w-0 flex-1">
         <div className="text-xs text-ink-subtle">
           {fmt.dayLong(card.date, lang)}
-          {lang === 'en' && ` · ${relativeDay(card.date, now.date)}`}
+          {/* "today", "tomorrow", "this Wednesday": only when it adds something beyond the date. */}
+          {lang === 'en' && relative !== formatDay(card.date) && ` · ${relative}`}
         </div>
         <div className="font-medium leading-snug">{head.title}</div>
         <div className="text-sm text-ink-muted">{head.sub}</div>

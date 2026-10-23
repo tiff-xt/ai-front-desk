@@ -84,7 +84,7 @@ export async function respond({ question, englishHint, uiLang, engine }: Respond
     answer = { ...answer, text: URGENT[lang](engine.knowledge.center.phone) }
     steps.push(`Emergency text: pre-written ${lang.toUpperCase()} translation (never machine-translated)`)
   } else if (lang !== 'en' && llmEnabled()) {
-    const p = await phrase(english, answer, lang)
+    const p = await phrase(answer, lang)
     if (p) {
       steps.push(
         p.used

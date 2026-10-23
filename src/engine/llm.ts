@@ -72,21 +72,31 @@ export async function understandLanguage(question: string): Promise<{ lang: stri
  * wording (an early test had a "rephrase" drop a child's allergy), and urgent
  * answers use pre-written translations, so neither comes here.
  */
-export async function phrase(question: string, answer: Answer, lang = 'en'): Promise<PhraseResult | null> {
+export async function phrase(answer: Answer, lang: string): Promise<PhraseResult | null> {
   if (answer.status === 'urgent' || lang === 'en') return null
-  const r = await post<{ text?: string }>('/phrase', { question, draft: answer.text, lang, mode: 'translate' })
-  const text = r?.text?.trim()
-  if (!text) return null
-  const g = guard(text, answer.trace.facts, answer.text)
-  return { text, guard: g, used: g.passed }
+  return translateGuarded(lang, answer.text, answer.trace.facts)
 }
 
 /** Translate a staff-written message for a parent. Guarded against the English original. */
 export async function translateFor(lang: string, text: string): Promise<PhraseResult | null> {
   if (lang === 'en') return null
-  const r = await post<{ text?: string }>('/phrase', { question: '', draft: text, lang, mode: 'translate' })
-  const out = r?.text?.trim()
-  if (!out) return null
-  const g = guard(out, [text], text)
-  return { text: out, guard: g, used: g.passed }
+  return translateGuarded(lang, text, [text])
+}
+
+/**
+ * The question is deliberately not sent: given it, models "helpfully" trim the
+ * answer to what was asked (dropping, say, the infant ratio), and the guard
+ * rejects the omission. One retry, because a second sample usually passes.
+ */
+async function translateGuarded(lang: string, draft: string, facts: string[]): Promise<PhraseResult | null> {
+  let last: PhraseResult | null = null
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const r = await post<{ text?: string }>('/phrase', { question: '', draft, lang, mode: 'translate' })
+    const text = r?.text?.trim()
+    if (!text) return last
+    const g = guard(text, facts, draft)
+    last = { text, guard: g, used: g.passed }
+    if (g.passed) return last
+  }
+  return last
 }

@@ -12,7 +12,7 @@ export interface Cluster<T> {
   items: T[]
 }
 
-const GENERIC = new Set(['child', 'kid', 'school', 'today', 'tomorrow', 'week', 'day', 'come', 'open', 'accept', 'take'])
+const GENERIC = new Set(['child', 'kid', 'school', 'today', 'tomorrow', 'week', 'day', 'come', 'open', 'accept', 'take', 'happen', 'bring', 'run', 'care', 'parent', 'allowed', 'still'])
 
 export function clusterQuestions<T extends { question: string }>(items: T[]): Cluster<T>[] {
   const clusters: { terms: Map<string, number>; items: T[] }[] = []
