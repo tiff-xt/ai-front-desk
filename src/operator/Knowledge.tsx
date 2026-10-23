@@ -257,6 +257,9 @@ export function KnowledgeView() {
 }
 
 function HealthPanel({ issues }: { issues: ReturnType<typeof healthCheck> }) {
+  // Conflicts and expiring data need action; "not reviewed in a year" is useful but shouldn't shout.
+  const [showStale, setShowStale] = useState(false)
+  const stale = issues.filter((i) => i.kind === 'stale').length
   if (!issues.length)
     return (
       <div className="card flex items-center gap-2 p-3 text-sm text-willow-text">
@@ -266,33 +269,43 @@ function HealthPanel({ issues }: { issues: ReturnType<typeof healthCheck> }) {
   return (
     <div className="card divide-y divide-line">
       <div className="flex items-center gap-2 px-4 py-2.5 text-sm font-medium">
-        <AlertTriangle size={15} className="text-honey" /> Health check · {issues.length} to review
+        <AlertTriangle size={15} className="text-honey" /> Health check · {issues.length - stale} to fix
       </div>
-      {issues.map((i) => (
-        <div key={i.id} className="flex flex-wrap items-start gap-3 px-4 py-3">
-          <span
-            className={cx(
-              'mt-0.5 rounded-full px-2 py-0.5 text-2xs font-semibold',
-              i.kind === 'conflict'
-                ? 'bg-rose-soft text-rose-text'
-                : i.kind === 'expiring'
-                  ? 'bg-honey-soft text-honey-text'
-                  : 'bg-surface-3 text-ink-muted',
+      {issues
+        .filter((i) => i.kind !== 'stale' || showStale)
+        .map((i) => (
+          <div key={i.id} className="flex flex-col gap-2 px-4 py-3 sm:flex-row sm:items-start sm:gap-3">
+            <span
+              className={cx(
+                'w-fit shrink-0 rounded-full px-2 py-0.5 text-2xs font-semibold sm:mt-0.5',
+                i.kind === 'conflict'
+                  ? 'bg-rose-soft text-rose-text'
+                  : i.kind === 'expiring'
+                    ? 'bg-honey-soft text-honey-text'
+                    : 'bg-surface-3 text-ink-muted',
+              )}
+            >
+              {i.kind === 'conflict' ? 'Conflict' : i.kind === 'expiring' ? 'Expiring' : 'Stale'}
+            </span>
+            <div className="min-w-0 flex-1">
+              <div className="text-sm font-medium">{i.title}</div>
+              <div className="text-xs text-ink-muted">{i.detail}</div>
+            </div>
+            {i.fix && (
+              <button className="btn-quiet w-fit shrink-0 !py-1 text-xs" onClick={() => updateKnowledge(i.fix!.apply)}>
+                {i.fix.label}
+              </button>
             )}
-          >
-            {i.kind === 'conflict' ? 'Conflict' : i.kind === 'expiring' ? 'Expiring' : 'Stale'}
-          </span>
-          <div className="min-w-0 flex-1">
-            <div className="text-sm font-medium">{i.title}</div>
-            <div className="text-xs text-ink-muted">{i.detail}</div>
           </div>
-          {i.fix && (
-            <button className="btn-quiet shrink-0 !py-1 text-xs" onClick={() => updateKnowledge(i.fix!.apply)}>
-              {i.fix.label}
-            </button>
-          )}
-        </div>
-      ))}
+        ))}
+      {stale > 0 && (
+        <button
+          onClick={() => setShowStale(!showStale)}
+          className="w-full px-4 py-2.5 text-left text-xs font-medium text-ink-muted hover:text-ink"
+        >
+          {showStale ? 'Hide' : 'Show'} {stale} {stale === 1 ? 'section' : 'sections'} not reviewed in over a year
+        </button>
+      )}
     </div>
   )
 }
@@ -300,7 +313,7 @@ function HealthPanel({ issues }: { issues: ReturnType<typeof healthCheck> }) {
 function Panel({ title, meta, children }: { title: string; meta: { updatedAt: string; updatedBy: string }; children: ReactNode }) {
   return (
     <section className="card space-y-4 p-4">
-      <div className="flex items-baseline justify-between gap-2">
+      <div className="flex flex-col gap-0.5 sm:flex-row sm:items-baseline sm:justify-between sm:gap-2">
         <h3 className="font-medium">{title}</h3>
         <span className="flex items-center gap-1 text-2xs text-ink-subtle">
           <Clock4 size={11} /> Updated {formatDay(meta.updatedAt)} {meta.updatedAt.slice(0, 4)} by {meta.updatedBy}

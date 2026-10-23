@@ -80,6 +80,8 @@ export interface State {
   thinking: boolean
   /** Language of the parent app's interface. Answers follow the language of each question regardless. */
   lang: UiLang
+  /** Which control-center tab is open; in the store so the guided tour can take you there. */
+  opTab: OpTab
   /** Ids of log entries an operator just fixed, for the "Fixed ✓" moment. */
   justFixed: string[]
 }
@@ -129,6 +131,7 @@ function initial(): State {
     notices: [],
     thinking: false,
     lang: 'en',
+    opTab: 'overview',
     justFixed: [],
   }
 }
@@ -358,6 +361,12 @@ export function setAutonomy(topic: Topic, level: Autonomy) {
 
 export function setNow(now: Clock) {
   setState(() => ({ now }))
+}
+
+export type OpTab = 'overview' | 'inbox' | 'gaps' | 'knowledge' | 'autonomy' | 'tests'
+
+export function setOpTab(opTab: OpTab) {
+  setState(() => ({ opTab }))
 }
 
 export function setLang(lang: UiLang) {

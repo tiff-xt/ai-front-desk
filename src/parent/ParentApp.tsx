@@ -1,5 +1,22 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { ArrowUp, Bell, BookOpen, ChevronDown, Mic, Sparkles, ThumbsDown, ThumbsUp, X } from 'lucide-react'
+import {
+  ArrowUp,
+  Bell,
+  BookOpen,
+  CalendarDays,
+  ChevronDown,
+  ChevronRight,
+  MapPin,
+  Mic,
+  ShieldCheck,
+  Sparkles,
+  Thermometer,
+  ThumbsDown,
+  ThumbsUp,
+  UtensilsCrossed,
+  Wallet,
+  X,
+} from 'lucide-react'
 import { Mark } from '@/components/Mark'
 import { cx, StatusPill } from '@/components/ui'
 import { demoFamily, roomNames } from '@/data/seed'
@@ -19,7 +36,15 @@ export function ParentApp() {
   const { t } = useT()
 
   useEffect(() => {
-    scroller.current?.scrollTo({ top: scroller.current.scrollHeight, behavior: 'smooth' })
+    // Follow the conversation; an empty thread starts at the top (the greeting).
+    // A new answer is shown from its first line, so a long one is read top-down.
+    const el = scroller.current
+    if (!el) return
+    if (!messages.length) return el.scrollTo({ top: 0 })
+    const last = messages[messages.length - 1]
+    const node = el.querySelector<HTMLElement>('[data-bubble]:last-of-type')
+    const top = last.role === 'parent' || thinking || !node ? el.scrollHeight : node.offsetTop - 12
+    el.scrollTo({ top, behavior: 'smooth' })
   }, [messages.length, thinking])
 
   const byId = useMemo(() => new Map(log.map((l) => [l.id, l])), [log])
@@ -42,16 +67,18 @@ export function ParentApp() {
           <X size={14} className="opacity-70" />
         </button>
       )}
-      <div ref={scroller} className="scrollbar-thin flex-1 overflow-y-auto px-3 pb-3 pt-2">
+      <div ref={scroller} className="scrollbar-thin relative flex-1 overflow-y-auto px-3 pb-3 pt-2">
         {messages.length === 0 ? <Today /> : <div className="h-2" />}
         <div className="space-y-3">
           {messages.map((m) => (
-            <Bubble key={m.id} m={m} entry={m.logId ? byId.get(m.logId) : undefined} />
+            <div key={m.id} data-bubble>
+              <Bubble m={m} entry={m.logId ? byId.get(m.logId) : undefined} />
+            </div>
           ))}
           {thinking && <Thinking />}
         </div>
       </div>
-      <Composer suggestions={messages.length === 0 ? t.starters : followUps} />
+      <Composer suggestions={messages.length === 0 ? undefined : followUps} />
     </div>
   )
 }
@@ -170,28 +197,63 @@ function Today() {
     rows.push({ label: fmt.short(e.date, lang), value: `${e.title}: ${e.note}`, q: `Are you open ${fmt.day(e.date, 'en')}?` })
 
   return (
-    <div className="animate-fade-in pb-3 pt-2">
-      <h1 className="font-serif text-[26px] font-semibold leading-tight tracking-tight">
+    <div className="animate-fade-in pb-2 pt-3">
+      <h1 className="font-serif text-[28px] font-semibold leading-tight tracking-tight">
         {greeting}, {first}.
       </h1>
-      <p className="mt-1 text-sm text-ink-muted">{t.intro(child.name)}</p>
-      <div className="card mt-4 divide-y divide-line overflow-hidden">
+      <p className="mt-0.5 text-[15px] text-ink-muted">{t.intro(child.name)}</p>
+
+      <div className="card mt-4 divide-y divide-line overflow-hidden shadow-card">
         {rows.map((r, i) => (
           <button
             key={i}
             onClick={() => ask(lang === 'en' ? r.q : (ROW_QUESTION_ES[r.q] ?? `¿${r.label}: ${r.value}?`), r.q)}
-            className="flex w-full items-start gap-3 px-3.5 py-2.5 text-left transition hover:bg-surface-2"
+            className="group flex w-full items-center gap-3 px-3.5 py-3 text-left transition hover:bg-surface-2"
           >
-            <span className="w-[4.5rem] shrink-0 pt-px text-2xs font-semibold uppercase tracking-wider text-ink-subtle">{r.label}</span>
-            <span className={cx('flex-1 text-sm', r.tone === 'rose' && 'text-rose-text', r.tone === 'honey' && 'text-honey-text')}>
+            <span
+              className={cx('h-2 w-2 shrink-0 rounded-full', r.tone === 'rose' ? 'bg-rose' : r.tone === 'honey' ? 'bg-honey' : 'bg-willow')}
+              aria-hidden
+            />
+            <span className="w-14 shrink-0 text-2xs font-semibold uppercase tracking-wider text-ink-subtle">{r.label}</span>
+            <span
+              className={cx('flex-1 text-sm leading-snug', r.tone === 'rose' && 'text-rose-text', r.tone === 'honey' && 'text-honey-text')}
+            >
               {r.value}
             </span>
+            <ChevronRight size={15} className="shrink-0 text-ink-subtle transition group-hover:translate-x-0.5" aria-hidden />
           </button>
         ))}
       </div>
+
+      <h2 className="mt-6 font-serif text-lg font-semibold">{t.askAnything}</h2>
+      <p className="text-xs text-ink-muted">{t.askHint}</p>
+      <div className="mt-2.5 grid grid-cols-2 gap-2">
+        {t.starters.map((q, i) => {
+          const Icon = STARTER_ICONS[i % STARTER_ICONS.length]
+          return (
+            <button
+              key={q}
+              onClick={() => ask(q, STARTER_ENGLISH[q])}
+              className="flex flex-col gap-2 rounded-2xl border border-line bg-surface p-3 text-left text-[13px] leading-snug shadow-card transition hover:-translate-y-px hover:border-willow/40 hover:shadow-lift"
+            >
+              <span className="grid h-7 w-7 place-items-center rounded-lg bg-willow-soft text-willow-text">
+                <Icon size={15} />
+              </span>
+              {q}
+            </button>
+          )
+        })}
+      </div>
+
+      <p className="mt-5 flex items-start gap-2 px-1 text-xs leading-relaxed text-ink-subtle">
+        <ShieldCheck size={14} className="mt-px shrink-0 text-willow" aria-hidden />
+        {t.trust}
+      </p>
     </div>
   )
 }
+
+const STARTER_ICONS = [CalendarDays, UtensilsCrossed, Thermometer, Wallet, MapPin, Sparkles]
 
 function Bubble({ m, entry }: { m: Message; entry?: LogEntry }) {
   const { t } = useT()
@@ -405,7 +467,7 @@ function Composer({ suggestions }: { suggestions?: string[] }) {
   }
 
   return (
-    <div className="border-t border-line bg-surface/90 px-3 pb-3 pt-2 backdrop-blur">
+    <div className="border-t border-line bg-surface/90 px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2 backdrop-blur">
       {suggestions && suggestions.length > 0 && (
         <div className="no-scrollbar -mx-3 mb-2 flex gap-1.5 overflow-x-auto px-3">
           {suggestions.map((s) => (
@@ -436,7 +498,7 @@ function Composer({ suggestions }: { suggestions?: string[] }) {
           onChange={(e) => setText(e.target.value)}
           placeholder={listening ? t.listening : t.ask}
           autoComplete="off"
-          className="min-w-0 flex-1 bg-transparent px-2 py-1.5 text-[15px] placeholder:text-ink-subtle focus:outline-none"
+          className="min-w-0 flex-1 bg-transparent px-2 py-1.5 text-base placeholder:text-ink-subtle focus:outline-none"
         />
         {Speech && (
           <button

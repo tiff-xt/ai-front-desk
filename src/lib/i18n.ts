@@ -43,8 +43,10 @@ const en = {
   officeClosed: 'Front desk · answers 24/7, office closed',
   whichChild: 'Which child',
   greeting: (h: number): string => (h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : 'Good evening'),
-  intro: (child: string) =>
-    `Ask anything about ${child}’s day, our policies or your account, in any language. Answers come from Willow & Wren’s own handbook, and a person steps in when it matters.`,
+  intro: (child: string) => `Here’s ${child}’s day at a glance.`,
+  askAnything: 'Ask anything',
+  askHint: 'In your own words, in any language.',
+  trust: 'Answers come from Willow & Wren’s handbook. A person steps in when it matters.',
   today: 'Today',
   lunch: 'Lunch',
   openUntil: (t: string) => `Open until ${t}`,
@@ -156,8 +158,10 @@ const es: Dict = {
   officeClosed: 'Recepción · respuestas 24/7, oficina cerrada',
   whichChild: 'Qué niño',
   greeting: (h) => (h < 12 ? 'Buenos días' : h < 19 ? 'Buenas tardes' : 'Buenas noches'),
-  intro: (child) =>
-    `Pregunte lo que quiera sobre el día de ${child}, nuestras políticas o su cuenta. Las respuestas vienen del manual de Willow & Wren, y una persona interviene cuando importa.`,
+  intro: (child) => `Así va el día de ${child}.`,
+  askAnything: 'Pregunte lo que quiera',
+  askHint: 'Con sus propias palabras, en cualquier idioma.',
+  trust: 'Las respuestas vienen del manual de Willow & Wren. Una persona interviene cuando importa.',
   today: 'Hoy',
   lunch: 'Almuerzo',
   openUntil: (t) => `Abierto hasta las ${t}`,
@@ -261,6 +265,7 @@ const es: Dict = {
     'Maya tiene fiebre, ¿puede ir?',
     '¿Cuánto cuesta la colegiatura para bebés?',
     '¿Cómo programo una visita?',
+    '¿Los niños necesitan algo para la comida de Acción de Gracias?',
   ],
 }
 

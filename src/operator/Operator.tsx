@@ -1,8 +1,8 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
 import { BookMarked, FlaskConical, Inbox as InboxIcon, LayoutDashboard, Lightbulb, SlidersHorizontal } from 'lucide-react'
 import { cx } from '@/components/ui'
 import { healthCheck } from '@/engine/health'
-import { useStore } from '@/store/store'
+import { setOpTab, useStore, type OpTab } from '@/store/store'
 import { Overview } from './Overview'
 import { Inbox } from './Inbox'
 import { gapItems } from '@/store/selectors'
@@ -11,10 +11,11 @@ import { KnowledgeView } from './Knowledge'
 import { AutonomyView } from './Autonomy'
 import { Tests } from './Tests'
 
-export type Tab = 'overview' | 'inbox' | 'gaps' | 'knowledge' | 'autonomy' | 'tests'
+export type Tab = OpTab
 
 export function Operator() {
-  const [tab, setTab] = useState<Tab>('overview')
+  const tab = useStore((s) => s.opTab)
+  const setTab = setOpTab
   const inbox = useStore((s) => s.inbox)
   const log = useStore((s) => s.log)
   const k = useStore((s) => s.knowledge)
@@ -32,27 +33,47 @@ export function Operator() {
     { id: 'tests', label: 'Tests', Icon: FlaskConical },
   ]
 
+  const nav = useRef<HTMLElement>(null)
+  const body = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    // Keep the active tab visible on narrow screens, and start each tab at the top.
+    nav.current?.querySelector('[aria-current="page"]')?.scrollIntoView({ inline: 'center', block: 'nearest', behavior: 'smooth' })
+    body.current?.scrollTo({ top: 0 })
+  }, [tab])
+
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <nav className="no-scrollbar flex shrink-0 gap-1 overflow-x-auto border-b border-line px-4 sm:px-6" aria-label="Control center">
-        {tabs.map((t) => (
-          <button
-            key={t.id}
-            onClick={() => setTab(t.id)}
-            aria-current={tab === t.id ? 'page' : undefined}
-            className={cx(
-              '-mb-px flex shrink-0 items-center gap-1.5 border-b-2 px-2.5 py-3 text-sm font-medium transition',
-              tab === t.id ? 'border-willow text-ink' : 'border-transparent text-ink-muted hover:text-ink',
-            )}
-          >
-            <t.Icon size={15} />
-            {t.label}
-            {!!t.count && <span className={cx('rounded-full px-1.5 text-2xs font-semibold tabular', t.tone)}>{t.count}</span>}
-          </button>
-        ))}
-      </nav>
-      <div className="scrollbar-thin min-h-0 flex-1 overflow-y-auto">
-        <div key={tab} className="animate-fade-in px-4 py-5 sm:px-6">
+      <div className="relative flex shrink-0 items-center border-b border-line bg-surface/60">
+        <nav
+          ref={nav}
+          className="no-scrollbar flex min-w-0 flex-1 gap-0.5 overflow-x-auto px-3 [mask-image:linear-gradient(to_right,transparent,black_12px,black_calc(100%-24px),transparent)] sm:px-5"
+          aria-label="Control center"
+        >
+          {tabs.map((t) => (
+            <button
+              key={t.id}
+              onClick={() => setTab(t.id)}
+              aria-current={tab === t.id ? 'page' : undefined}
+              className={cx(
+                '-mb-px flex shrink-0 items-center gap-1.5 border-b-2 px-2.5 py-3 text-sm font-medium transition',
+                tab === t.id ? 'border-willow text-ink' : 'border-transparent text-ink-muted hover:text-ink',
+              )}
+            >
+              <t.Icon size={15} />
+              {t.label}
+              {!!t.count && <span className={cx('rounded-full px-1.5 text-2xs font-semibold tabular', t.tone)}>{t.count}</span>}
+            </button>
+          ))}
+        </nav>
+        <div className="hidden shrink-0 items-center gap-2 pr-5 text-xs text-ink-muted xl:flex" title="You're viewing the staff console">
+          <span className="grid h-6 w-6 place-items-center rounded-full bg-dusk-soft font-serif text-2xs font-semibold text-dusk-text">
+            ER
+          </span>
+          Ms. Rivera · Director
+        </div>
+      </div>
+      <div ref={body} className="scrollbar-thin min-h-0 flex-1 overflow-y-auto">
+        <div key={tab} className="mx-auto max-w-6xl animate-fade-in px-4 pb-10 pt-5 sm:px-6">
           {tab === 'overview' && <Overview go={setTab} />}
           {tab === 'inbox' && <Inbox />}
           {tab === 'gaps' && <Gaps />}

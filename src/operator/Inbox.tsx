@@ -1,5 +1,15 @@
 import { useEffect, useState } from 'react'
-import { CalendarCheck, CheckCheck, Flag, Inbox as InboxIcon, Send, ShieldAlert, Stethoscope, UtensilsCrossed } from 'lucide-react'
+import {
+  CalendarCheck,
+  ChevronLeft,
+  CheckCheck,
+  Flag,
+  Inbox as InboxIcon,
+  Send,
+  ShieldAlert,
+  Stethoscope,
+  UtensilsCrossed,
+} from 'lucide-react'
 import { cx, Empty, LangBadge } from '@/components/ui'
 import { languageName } from '@/lib/lang'
 import { formatDay, formatTime } from '@/lib/time'
@@ -27,8 +37,9 @@ export function Inbox() {
     )
 
   return (
+    // Phones: list, then tap into one item (with a way back). Desktop: list and detail side by side.
     <div className="grid gap-4 lg:grid-cols-[minmax(0,20rem)_1fr]">
-      <ul className="card divide-y divide-line self-start overflow-hidden">
+      <ul className={cx('card divide-y divide-line self-start overflow-hidden', sel && 'hidden lg:block')}>
         {[...open, ...done].map((i) => {
           const k = KIND[i.kind]
           return (
@@ -62,7 +73,14 @@ export function Inbox() {
           )
         })}
       </ul>
-      {current && <Detail key={current.id} item={current} />}
+      {current && (
+        <div className={cx('min-w-0', !sel && 'hidden lg:block')}>
+          <button className="btn-ghost mb-2 !px-2 lg:hidden" onClick={() => setSel(null)}>
+            <ChevronLeft size={16} /> All messages
+          </button>
+          <Detail key={current.id} item={current} />
+        </div>
+      )}
     </div>
   )
 }
@@ -73,7 +91,7 @@ function Detail({ item }: { item: InboxItem }) {
   useEffect(() => setDraft(item.draft ?? ''), [item.draft])
   const canReply = item.kind === 'handoff' || item.kind === 'review' || item.kind === 'flag'
   return (
-    <div className="card self-start p-5">
+    <div className="card self-start p-4 sm:p-5">
       <div className="flex flex-wrap items-center gap-2">
         <span className={cx('inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-2xs font-semibold', k.cls)}>
           <k.Icon size={12} /> {k.label}
