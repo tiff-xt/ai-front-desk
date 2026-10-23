@@ -81,7 +81,15 @@ export default {
 
     if (request.method === 'OPTIONS') return new Response(null, { headers: cors })
     const url = new URL(request.url)
-    if (request.method === 'GET' && url.pathname === '/health') return json({ ok: true, model: cfg.LLM_MODEL })
+    // Setup check: confirms this is the API (not the website) and whether the key is configured, without revealing it.
+    if (request.method === 'GET' && (url.pathname === '/' || url.pathname === '/health'))
+      return json({
+        ok: true,
+        service: 'ai-front-desk-api',
+        model: cfg.LLM_MODEL,
+        keyConfigured: Boolean(env.LLM_API_KEY),
+        endpoints: ['/understand', '/classify', '/phrase'],
+      })
     if (request.method !== 'POST') return json({ error: 'POST only' }, 405)
     if (!allowed.includes(origin)) return json({ error: 'origin not allowed' }, 403)
     if (!cfg.LLM_API_KEY) return json({ error: 'LLM_API_KEY is not set' }, 500)
