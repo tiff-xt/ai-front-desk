@@ -27,7 +27,7 @@ export class ErrorBoundary extends Component<Props, State> {
   }
 
   componentDidCatch(error: Error, info: ErrorInfo) {
-    const details = `${error.name}: ${error.message}\n${info.componentStack ?? ''}`.trim()
+    const details = `${error.stack ?? `${error.name}: ${error.message}`}\n\nComponents:${info.componentStack ?? ''}`.trim()
     this.setState({ details })
     console.error(`[${this.props.area}]`, error, info.componentStack)
   }

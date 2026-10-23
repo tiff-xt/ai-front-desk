@@ -14,6 +14,19 @@ export default tseslint.config(
     rules: {
       ...reactHooks.configs.recommended.rules,
       'react-refresh/only-export-components': ['warn', { allowConstantExport: true }],
+      // An effect may only return a cleanup function. Expression bodies and \`return x.scrollTo()\`
+      // silently return values (newer Chrome's scrollTo returns a Promise) that React then calls.
+      'no-restricted-syntax': [
+        'error',
+        {
+          selector: "CallExpression[callee.name=/^use(Layout)?Effect$/] > ArrowFunctionExpression[body.type!='BlockStatement']",
+          message: 'Use a block body for effects so nothing but a cleanup function can be returned.',
+        },
+        {
+          selector: 'CallExpression[callee.name=/^use(Layout)?Effect$/] ReturnStatement > CallExpression',
+          message: 'Do not return a call result from an effect; React treats the return value as a cleanup function.',
+        },
+      ],
     },
   },
 )

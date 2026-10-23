@@ -89,7 +89,9 @@ export function Inbox() {
 function Detail({ item }: { item: InboxItem }) {
   const k = KIND[item.kind]
   const [draft, setDraft] = useState(item.draft ?? '')
-  useEffect(() => setDraft(item.draft ?? ''), [item.draft])
+  useEffect(() => {
+    setDraft(item.draft ?? '')
+  }, [item.draft])
   const canReply = item.kind === 'handoff' || item.kind === 'review' || item.kind === 'flag'
   return (
     <div className="card self-start p-4 sm:p-5">

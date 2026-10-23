@@ -30,7 +30,9 @@ export function App() {
     if (tab) setOpTab(tab)
     if (lang) setLang(lang)
   }, [])
-  useEffect(() => mirrorViewInUrl(view), [view])
+  useEffect(() => {
+    mirrorViewInUrl(view)
+  }, [view])
   const [theme, setTheme] = useState(() => document.documentElement.getAttribute('data-theme') ?? 'light')
 
   // Side by side needs room; if the window shrinks, fall back to the parent view.

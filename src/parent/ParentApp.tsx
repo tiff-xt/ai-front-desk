@@ -21,7 +21,12 @@ export function ParentApp() {
     // A new answer is shown from its first line, so a long one is read top-down.
     const el = scroller.current
     if (!el) return
-    if (!messages.length) return el.scrollTo({ top: 0 })
+    // Never `return el.scrollTo(...)`: newer Chrome returns a Promise from scrollTo, and React would
+    // call whatever an effect returns as its cleanup ("T is not a function" on the next update/unmount).
+    if (!messages.length) {
+      el.scrollTo({ top: 0 })
+      return
+    }
     const last = messages[messages.length - 1]
     const node = el.querySelector<HTMLElement>('[data-bubble]:last-of-type')
     const top = last.role === 'parent' || thinking || !node ? el.scrollHeight : node.offsetTop - 12
