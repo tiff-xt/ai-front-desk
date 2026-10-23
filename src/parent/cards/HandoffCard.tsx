@@ -8,7 +8,7 @@ import { fmt, useT } from '@/lib/i18n'
 
 export function HandoffCard({ k, now, logId }: { k: Knowledge; now: Clock; logId?: string }) {
   const item = useStore((s) => s.inbox.find((i) => i.logId === logId))
-  const replied = item?.status === 'done'
+  const replied = !!item?.thread.some((m) => m.role === 'staff')
   const { t, lang } = useT()
   const next = firstOpenAtOrAfter(k, now)
   const expectation = isOfficeOpen(k, now)

@@ -78,6 +78,10 @@ const INTENTS: { topic: AnyTopic; patterns: (string | RegExp)[] }[] = [
   },
 ]
 
+/** True when a message must get emergency instructions, whatever else is going on (e.g. mid-conversation with staff). */
+export const isEmergency = (raw: string) =>
+  SCREENS[0].patterns.some((p) => (typeof p === 'string' ? normalize(raw).includes(p) : p.test(normalize(raw))))
+
 export interface Understanding {
   topic: AnyTopic
   matched: string

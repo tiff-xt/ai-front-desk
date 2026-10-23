@@ -72,7 +72,7 @@ export function ParentApp() {
         {awayFromToday && messages.length > 0 && (
           <button
             onClick={() => scroller.current?.scrollTo({ top: 0, behavior: 'smooth' })}
-            className="sticky top-1 z-10 mx-auto -mb-8 flex animate-fade-in items-center gap-1 rounded-full border border-line bg-surface/95 px-3 py-1.5 text-xs font-medium text-ink shadow-lift backdrop-blur"
+            className="sticky top-1 z-10 -mb-8 ml-auto mr-1 flex animate-fade-in items-center gap-1 rounded-full border border-line bg-surface/95 px-3 py-1.5 text-xs font-medium text-ink shadow-lift backdrop-blur"
           >
             <ArrowUp size={13} /> {t.backToToday}
           </button>

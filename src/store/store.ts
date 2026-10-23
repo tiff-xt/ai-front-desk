@@ -3,11 +3,13 @@ import { demoFamily, seedKnowledge } from '@/data/seed'
 import type { HandbookSection, Knowledge } from '@/data/types'
 import { answerQuestion, needsStaff } from '@/engine/answer'
 import { DEFAULT_AUTONOMY, DEMO_NOW, TOPIC_LABELS } from '@/engine/defaults'
+import { llmEnabled, understandLanguage } from '@/engine/llm'
 import { localizeForParent, respond } from '@/engine/respond'
+import { isEmergency } from '@/engine/understand'
 import type { Answer, Autonomy, Topic } from '@/engine/types'
 import { formatDay, formatTime, type Clock } from '@/lib/time'
 import { SEED_LOG } from './seedLog'
-import { isUiLang, type UiLang } from '@/lib/lang'
+import { detectLang, isUiLang, type UiLang } from '@/lib/lang'
 import { storage } from '@/lib/storage'
 
 /**
@@ -34,6 +36,22 @@ export interface LogEntry {
 
 export type InboxKind = 'handoff' | 'review' | 'flag' | 'lunch' | 'tour' | 'absence'
 
+/** One message in a staff ↔ parent conversation. `text` is English (what staff read); `original` is the parent's own words. */
+export interface ThreadMessage {
+  id: string
+  role: 'parent' | 'staff'
+  text: string
+  original?: string
+  at: Clock
+}
+
+/**
+ * open    – needs staff (a new item, or the parent wrote back)
+ * replied – staff answered; waiting on the parent
+ * done    – resolved by staff; the conversation is closed
+ */
+export type InboxStatus = 'open' | 'replied' | 'done'
+
 export interface InboxItem {
   id: string
   at: Clock
@@ -43,10 +61,12 @@ export interface InboxItem {
   detail: string
   draft?: string
   logId?: string
-  status: 'open' | 'done'
+  status: InboxStatus
   live?: boolean
   original?: string
   lang?: string
+  /** The conversation so far. Starts with the parent's question. */
+  thread: ThreadMessage[]
 }
 
 export interface Message {
@@ -59,6 +79,8 @@ export interface Message {
   original?: string
   /** True when a translation failed the guard and we showed the verified English instead. */
   unverified?: boolean
+  /** Small status lines in the parent thread, rendered in the parent's language. */
+  note?: 'sentToStaff' | 'resolved' | 'leftThread'
 }
 
 export interface Notice {
@@ -82,10 +104,16 @@ export interface State {
   lang: UiLang
   /** Which control-center tab is open; in the store so the guided tour can take you there. */
   opTab: OpTab
+  /**
+   * The inbox item the parent is currently talking to a person about. While set, what the
+   * parent types goes to that person, not the AI (emergencies excepted). Cleared when staff
+   * resolve it or the parent chooses "Back to the front desk".
+   */
+  activeThreadId: string | null
 }
 
 // Bump when State changes shape; older saves are merged over fresh defaults either way.
-const KEY = 'ww-state-v5'
+const KEY = 'ww-state-v6'
 const uid = () => Math.random().toString(36).slice(2, 10)
 
 function initial(): State {
@@ -131,6 +159,7 @@ function initial(): State {
     thinking: false,
     lang: 'en',
     opTab: 'overview',
+    activeThreadId: null,
   }
 }
 
@@ -150,10 +179,12 @@ function toInbox(l: LogEntry): InboxItem {
     live: l.live,
     original: l.original,
     lang: l.lang,
+    thread: [{ id: uid(), role: 'parent', text: l.question, original: l.original, at: l.at }],
   }
 }
 
 const INBOX_KINDS: InboxKind[] = ['handoff', 'review', 'flag', 'lunch', 'tour', 'absence']
+const INBOX_STATUSES: InboxStatus[] = ['open', 'replied', 'done']
 const OP_TABS: OpTab[] = ['overview', 'inbox', 'gaps', 'knowledge', 'autonomy', 'tests']
 
 /** A cheap structural check on saved data: enough to guarantee every view can render it. */
@@ -162,7 +193,7 @@ function isSane(s: State) {
     Array.isArray(s.log) &&
     s.log.every((l) => l?.answer?.status && l.at?.date && typeof l.question === 'string') &&
     Array.isArray(s.inbox) &&
-    s.inbox.every((i) => INBOX_KINDS.includes(i?.kind)) &&
+    s.inbox.every((i) => INBOX_KINDS.includes(i?.kind) && INBOX_STATUSES.includes(i.status) && Array.isArray(i.thread)) &&
     Array.isArray(s.messages) &&
     OP_TABS.includes(s.opTab) &&
     typeof s.now?.date === 'string' &&
@@ -226,6 +257,10 @@ export async function ask(question: string, englishHint?: string) {
   setState((s) => ({ messages: [...s.messages, { id: uid(), role: 'parent', text: q, at }], thinking: true }))
   const started = performance.now()
 
+  // In a conversation with a person, typed messages go to that person. (A tapped suggestion is
+  // an explicit question for the desk, so it still gets an instant answer.)
+  if (!englishHint && (await continueThread(q, at))) return
+
   const { answer, lang, english, unverified } = await respond({
     question: q,
     englishHint,
@@ -261,7 +296,46 @@ export async function ask(question: string, englishHint?: string) {
     lang: isUiLang(lang) ? lang : s.lang,
     log: [...s.log, entry],
     messages: [...s.messages, { id: uid(), role: 'desk', text: answer.text, at, logId: entry.id, unverified }],
-    inbox: needsStaff(answer) ? [toInbox(entry), ...s.inbox] : s.inbox,
+    ...(needsStaff(answer) ? openInboxItem(s, entry) : {}),
+  }))
+}
+
+/** A new item for staff; a handoff also becomes the parent's active conversation. */
+function openInboxItem(s: State, entry: LogEntry): Partial<State> {
+  const item = toInbox(entry)
+  return { inbox: [item, ...s.inbox], activeThreadId: item.kind === 'handoff' ? item.id : s.activeThreadId }
+}
+
+/**
+ * If the parent is talking to a person, add their message to that conversation and return true.
+ * Emergencies always fall through to the desk, which answers with 911 instructions immediately.
+ */
+async function continueThread(q: string, at: Clock): Promise<boolean> {
+  const item = state.inbox.find((i) => i.id === state.activeThreadId && i.status !== 'done')
+  if (!item) return false
+  let english = q
+  if (detectLang(q) !== 'en' && llmEnabled()) english = (await understandLanguage(q))?.english ?? q
+  if (isEmergency(english) || isEmergency(q)) return false
+
+  const msg: ThreadMessage = { id: uid(), role: 'parent', text: english, original: english !== q ? q : undefined, at }
+  setState((s) => {
+    const last = s.messages[s.messages.length - 2] // the message before the one just added
+    return {
+      thinking: false,
+      inbox: s.inbox.map((i) => (i.id === item.id ? { ...i, status: 'open', at, thread: [...i.thread, msg] } : i)),
+      // One "sent to Ms. Rivera" line per run of messages is enough.
+      messages:
+        last?.note === 'sentToStaff' ? s.messages : [...s.messages, { id: uid(), role: 'system', text: '', at, note: 'sentToStaff' }],
+    }
+  })
+  return true
+}
+
+/** The parent leaves the conversation with staff and goes back to instant answers. */
+export function leaveThread() {
+  setState((s) => ({
+    activeThreadId: null,
+    messages: [...s.messages, { id: uid(), role: 'system', text: '', at: s.now, note: 'leftThread' }],
   }))
 }
 
@@ -272,7 +346,7 @@ export function giveFeedback(logId: string, feedback: 'up' | 'down') {
 export function createRequest(kind: InboxKind, title: string, detail: string, parentNote: string) {
   const at = state.now
   setState((s) => ({
-    inbox: [{ id: uid(), at, kind, title, who: PARENT, detail, status: 'open', live: true }, ...s.inbox],
+    inbox: [{ id: uid(), at, kind, title, who: PARENT, detail, status: 'open', live: true, thread: [] }, ...s.inbox],
     messages: [...s.messages, { id: uid(), role: 'system', text: parentNote, at }],
   }))
 }
@@ -282,17 +356,37 @@ export function bookTour(slot: Clock, parentNote: string) {
   createRequest('tour', 'Tour booked', `${formatDay(slot.date)} at ${formatTime(slot.minutes)}`, parentNote)
 }
 
-/** Staff sends a reply (or approves a draft). If the asker is the demo parent, it lands in their thread, in their language. */
-export async function resolveInbox(id: string, reply?: string) {
+/**
+ * Staff replies (or approves a draft). The conversation stays open, waiting on the parent:
+ * replying is not resolving. If the asker is the demo parent, the reply lands in their
+ * thread, in their language, and further messages from them come back to this person.
+ */
+export async function replyToParent(id: string, reply: string) {
   const item = state.inbox.find((i) => i.id === id)
-  if (!item) return
+  if (!item || !reply.trim()) return
   const at = state.now
-  setState((s) => ({ inbox: s.inbox.map((i) => (i.id === id ? { ...i, status: 'done' } : i)) }))
-  if (!reply || !item.live) return
+  const staffMsg: ThreadMessage = { id: uid(), role: 'staff', text: reply, at }
+  setState((s) => ({
+    inbox: s.inbox.map((i) => (i.id === id ? { ...i, status: 'replied', thread: [...i.thread, staffMsg] } : i)),
+    activeThreadId: item.live ? id : s.activeThreadId,
+  }))
+  if (!item.live) return
   const msg = await localizeForParent(reply, item.lang ?? 'en')
   setState((s) => ({
     messages: [...s.messages, { id: uid(), role: 'staff', at, ...msg }],
     notices: [{ id: uid(), at, kind: 'reply' }, ...s.notices],
+  }))
+}
+
+/** Staff close the item. A parent in that conversation is told, and goes back to the front desk. */
+export function resolveItem(id: string) {
+  const item = state.inbox.find((i) => i.id === id)
+  if (!item) return
+  const wasActive = state.activeThreadId === id
+  setState((s) => ({
+    inbox: s.inbox.map((i) => (i.id === id ? { ...i, status: 'done' } : i)),
+    activeThreadId: wasActive ? null : s.activeThreadId,
+    messages: wasActive ? [...s.messages, { id: uid(), role: 'system', text: '', at: s.now, note: 'resolved' }] : s.messages,
   }))
 }
 
@@ -374,6 +468,7 @@ export function publishAnswer(section: Omit<HandbookSection, 'id' | 'updatedAt' 
     knowledge,
     log,
     inbox: s.inbox.map((i) => (i.logId && fixed.includes(i.logId) ? { ...i, status: 'done' } : i)),
+    activeThreadId: s.inbox.some((i) => i.id === s.activeThreadId && i.logId && fixed.includes(i.logId)) ? null : s.activeThreadId,
   }))
   return { id, fixed }
 }

@@ -18,6 +18,22 @@ export function Bubble({ m, entry }: { m: Message; entry?: LogEntry }) {
         <div className="max-w-[85%] rounded-2xl rounded-br-md bg-willow px-3.5 py-2 text-[15px] text-white dark:text-bg">{m.text}</div>
       </div>
     )
+  if (m.role === 'system' && m.note === 'sentToStaff')
+    return (
+      <div className="flex animate-fade-in justify-end pr-1 text-2xs text-ink-subtle">
+        <span className="inline-flex items-center gap-1">
+          <StaffAvatar size="sm" className="!h-4 !w-4 !text-[8px]" /> {t.sentToStaff}
+        </span>
+      </div>
+    )
+  if (m.role === 'system' && m.note)
+    return (
+      <div className="flex animate-rise-in justify-center">
+        <div className="max-w-[90%] rounded-2xl bg-surface-2 px-3 py-1.5 text-center text-xs text-ink-muted">
+          {m.note === 'resolved' ? t.resolvedNote : t.leftThread}
+        </div>
+      </div>
+    )
   if (m.role === 'system')
     return (
       <div className="flex animate-rise-in justify-center">
